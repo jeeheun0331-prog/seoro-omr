@@ -1,0 +1,3063 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>서로국어논술 · OMR 자동 채점기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800;900&family=Noto+Serif+KR:wght@600;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0B1220;--paper:#F6F5F0;--panel:#FFFFFF;--line:#DFE0D8;
+  --navy:#132A5C;--navy-soft:#2A4A8C;--blue:#2563EB;
+  --correct:#0E7A55;--correct-bg:#E6F4EE;--wrong:#C0392B;--wrong-bg:#FBEBE9;
+  --blank:#8A8F98;--blank-bg:#EEEEF0;--amber:#C77D0A;--mute:#6B7280;
+  --shadow:0 1px 2px rgba(11,18,32,.06),0 8px 24px rgba(11,18,32,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--paper);color:var(--ink);font-family:"Gothic A1",-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5}
+body{max-width:760px;margin:0 auto;padding:0 0 118px;min-height:100vh}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font-family:inherit}
+
+.appbar{position:sticky;top:0;z-index:40;background:var(--navy);color:#fff;padding:14px 20px calc(14px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px;box-shadow:0 2px 12px rgba(19,42,92,.25)}
+.appbar .mark{width:34px;height:34px;border-radius:9px;background:#fff;display:grid;place-items:center;font-family:"Noto Serif KR",serif;font-weight:900;color:var(--navy);font-size:18px;flex-shrink:0}
+.appbar h1{font-size:15.5px;font-weight:800;letter-spacing:-.02em;line-height:1.2}
+.appbar .sub{font-size:11px;font-weight:500;color:#AEBEE0}
+.appbar .spacer{flex:1}
+.appbar .ghost{font-size:12px;font-weight:700;color:#AEBEE0;padding:7px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.18)}
+
+.screen{display:none;padding:20px}
+.screen.on{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.hero{background:var(--navy);color:#fff;border-radius:18px;padding:24px 22px;position:relative;overflow:hidden;margin-bottom:18px}
+.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.14),transparent 70%)}
+.hero .eyebrow{font-size:11px;font-weight:700;letter-spacing:.16em;color:#9DB2E0;text-transform:uppercase}
+.hero h2{font-family:"Noto Serif KR",serif;font-weight:900;font-size:24px;letter-spacing:-.02em;margin:8px 0 6px;line-height:1.3}
+.hero p{font-size:13px;color:#C6D2EC;max-width:46ch}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card h3{font-size:13px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card h3 .n,.card h4 .n{width:20px;height:20px;border-radius:6px;background:var(--navy);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;font-family:"JetBrains Mono",monospace}
+
+.field{margin-bottom:14px}.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--mute);margin-bottom:6px}
+.field input,.field select{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;font-size:14.5px;font-weight:600;background:#fff;color:var(--ink)}
+.field input:focus,.field select:focus{outline:none;border-color:var(--blue)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* 모바일 date 입력 중첩 수정: WebKit의 input[type=date]는 내재 최소폭이 커서
+   그리드 1fr 칸보다 줄어들지 않고(그리드 아이템 기본 min-width:auto) 옆 칸을 침범한다.
+   ① 그리드 아이템 축소 허용 ② date 입력의 내재폭·기본 외형 무력화 ③ 초협소 화면은 1열 폴백 */
+.row2>.field{min-width:0}
+.field input[type=date]{min-width:0;max-width:100%;-webkit-appearance:none;appearance:none;display:block;height:44px;-webkit-min-logical-width:0}
+.field input[type=date]::-webkit-date-and-time-value{text-align:left}
+@media (max-width:380px){.row2{grid-template-columns:1fr}}
+
+.btn{display:block;width:100%;padding:15px;border-radius:12px;background:var(--navy);color:#fff;font-size:15px;font-weight:800;transition:transform .08s;box-shadow:0 4px 14px rgba(19,42,92,.25)}
+.btn:active{transform:translateY(1px)}
+.btn.alt{background:#fff;color:var(--navy);border:1.5px solid var(--navy);box-shadow:none}
+.btn.ghost{background:transparent;color:var(--mute);box-shadow:none;font-weight:700;font-size:13.5px;padding:11px}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px;margin-top:4px}
+.qcell{border:1.5px solid var(--line);border-radius:11px;padding:8px 5px 9px;background:#fff;position:relative}
+.qcell .qno{font-size:11px;font-weight:800;color:var(--navy);font-family:"JetBrains Mono",monospace;text-align:center;margin-bottom:5px}
+.qcell .qno .pt{color:var(--amber);font-size:9px;margin-left:1px}
+.choices{display:flex;gap:2px;justify-content:center}
+.choices .ch{width:22px;height:22px;border-radius:50%;border:1.4px solid var(--line);font-size:10.5px;font-weight:700;color:var(--mute);display:grid;place-items:center;font-family:"JetBrains Mono",monospace;flex:0 0 auto}
+.choices .ch.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.qcell.lowconf{border-color:var(--amber);background:#FFF7E6}
+.qcell .tag{position:absolute;top:-8px;right:-6px;font-size:9px;font-weight:800;padding:2px 6px;border-radius:20px;color:#fff;background:var(--amber)}
+.mini-meta{display:flex;gap:4px;justify-content:center;margin-top:6px}
+.mini-meta .m{font-size:8.5px;font-weight:700;padding:1px 5px;border-radius:5px;background:var(--paper);color:var(--mute)}
+
+.hint{font-size:12px;color:var(--mute);margin-top:12px;line-height:1.55;padding:11px 13px;background:var(--paper);border-radius:10px;border:1px solid var(--line)}
+.hint b{color:var(--navy)}
+.section-title{font-size:12px;font-weight:800;color:var(--mute);letter-spacing:.02em;margin:20px 4px 10px;text-transform:uppercase}
+
+/* scan CTA */
+.scan-cta{display:flex;gap:10px;margin-bottom:14px}
+.scan-cta button{flex:1;padding:15px 10px;border-radius:13px;border:1.5px solid var(--navy);background:var(--navy);color:#fff;font-size:14px;font-weight:800;display:flex;flex-direction:column;align-items:center;gap:6px;transition:transform .08s}
+.scan-cta button:active{transform:translateY(1px)}
+.scan-cta button.line{background:#fff;color:var(--navy)}
+.scan-cta button svg{width:22px;height:22px}
+.scan-cta button small{font-size:10px;font-weight:600;opacity:.75}
+.or-split{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--mute);font-size:11px;font-weight:700}
+.or-split::before,.or-split::after{content:"";flex:1;height:1px;background:var(--line)}
+#tplSwitch button.on{background:#fff;color:var(--navy);box-shadow:0 1px 4px rgba(11,18,32,.1)}
+.legend{display:flex;gap:14px;justify-content:center;margin:2px 0 16px;flex-wrap:wrap}
+.legend span{font-size:11px;font-weight:700;color:var(--mute);display:flex;align-items:center;gap:5px}
+.legend i{width:11px;height:11px;border-radius:4px;display:inline-block}
+
+/* modal */
+.modal-mask{position:fixed;inset:0;background:rgba(11,18,32,.55);backdrop-filter:blur(3px);z-index:200;display:none;align-items:flex-end;justify-content:center}
+.modal-mask.on{display:flex;animation:fade .2s ease}
+.modal{background:var(--paper);width:100%;max-width:760px;border-radius:22px 22px 0 0;max-height:94vh;overflow-y:auto;padding:8px 20px calc(24px + env(safe-area-inset-bottom))}
+.modal .grip{width:40px;height:4px;background:var(--line);border-radius:3px;margin:6px auto 14px}
+.modal .mtitle{font-size:17px;font-weight:900;letter-spacing:-.02em;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.modal .msub{font-size:12.5px;color:var(--mute);font-weight:600;margin-bottom:16px;line-height:1.5}
+.modal .msub b{color:var(--navy)}
+.analyzing{text-align:center;padding:34px 20px}
+.spinner{width:44px;height:44px;border:4px solid var(--line);border-top-color:var(--navy);border-radius:50%;margin:0 auto 16px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.analyzing p{font-size:14px;font-weight:800}.analyzing span{font-size:12px;color:var(--mute);font-weight:600}
+.err-box{background:var(--wrong-bg);border:1.5px solid var(--wrong);border-radius:13px;padding:14px 15px;margin-bottom:14px}
+.err-box .et{font-size:13px;font-weight:800;color:var(--wrong);margin-bottom:5px}
+.err-box .ed{font-size:12px;color:#7a2a20;font-weight:600;line-height:1.55}
+.overlay-canvas{width:100%;border-radius:14px;display:block;margin-bottom:12px;background:#000;border:1px solid var(--line)}
+.review-head{display:flex;align-items:center;gap:8px;background:#FFF7E6;border:1.5px solid var(--amber);border-radius:12px;padding:11px 13px;margin-bottom:14px}
+.review-head svg{width:20px;height:20px;color:var(--amber);flex-shrink:0}
+.review-head p{font-size:12px;font-weight:700;color:#8a5a08;line-height:1.5}
+.review-stats{display:flex;gap:8px;margin-bottom:14px}
+.review-stats .rs{flex:1;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px;text-align:center}
+.review-stats .rs .v{font-family:"JetBrains Mono",monospace;font-size:18px;font-weight:700}
+.review-stats .rs .k{font-size:10px;color:var(--mute);font-weight:700;margin-top:2px}
+.sens{display:flex;align-items:center;gap:12px;margin-bottom:14px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px 13px}
+.sens label{font-size:12px;font-weight:800;color:var(--navy);white-space:nowrap}
+.sens input[type=range]{flex:1;accent-color:var(--navy)}
+.sens .val{font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:700;width:34px;text-align:right}
+.modal .mbtns{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:6px}
+
+/* result */
+.scorehero{background:linear-gradient(150deg,var(--navy),var(--navy-soft));color:#fff;border-radius:18px;padding:24px 22px;text-align:center;position:relative;overflow:hidden;margin-bottom:16px}
+.scorehero .exam-label{font-size:12px;font-weight:700;color:#B9C8E8;margin-bottom:14px}
+.ring-wrap{position:relative;width:150px;height:150px;margin:0 auto 6px}
+.ring-wrap svg{transform:rotate(-90deg)}
+.ring-center{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.ring-center .raw{font-family:"JetBrains Mono",monospace;font-size:40px;font-weight:700;line-height:1}
+.ring-center .raw span{font-size:18px;color:#B9C8E8}
+.ring-center .grade{font-size:12px;font-weight:800;color:#fff;margin-top:5px;background:rgba(255,255,255,.16);padding:3px 12px;border-radius:20px;display:inline-block}
+.ring-center .grade.real{background:#8FE6C0;color:#0B3B2A}
+.score-sub{display:flex;justify-content:center;gap:22px;margin-top:14px}
+.score-note{margin-top:10px;font-size:11.5px;font-weight:600;color:#C6D2EC;text-align:center}
+.score-sub div{text-align:center}
+.score-sub .v{font-family:"JetBrains Mono",monospace;font-size:20px;font-weight:700}
+.score-sub .k{font-size:10.5px;color:#B9C8E8;font-weight:600;margin-top:2px}
+.score-sub .v.ok{color:#8FE6C0}.score-sub .v.no{color:#F5A9A0}
+.bar-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.bar-row .lab{width:88px;font-size:12.5px;font-weight:700;flex-shrink:0}
+.bar-row .track{flex:1;height:22px;background:var(--paper);border-radius:7px;overflow:hidden;border:1px solid var(--line)}
+.bar-row .fill{height:100%;background:var(--navy);border-radius:6px;transition:width .6s cubic-bezier(.2,.8,.2,1);min-width:2px}
+.bar-row .fill.low{background:var(--wrong)}.bar-row .fill.mid{background:var(--amber)}
+.bar-row .pct{width:64px;text-align:right;font-size:12px;font-weight:700;font-family:"JetBrains Mono",monospace;flex-shrink:0}
+.bar-row .pct span{color:var(--mute);font-weight:500}
+.wrong-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+/* ── 문항별 O/X 채점 결과 ── */
+.ox-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.ox-cell{display:flex;flex-direction:column;align-items:center;gap:1px;padding:7px 2px 5px;border-radius:9px;border:1px solid var(--line);background:var(--paper)}
+.ox-cell .oq{font-size:10.5px;font-weight:700;color:var(--mute);font-family:"JetBrains Mono",monospace}
+.ox-cell .om{font-size:17px;font-weight:900;line-height:1.1}
+.ox-cell .od{font-size:9px;color:var(--mute);font-family:"JetBrains Mono",monospace;letter-spacing:-.3px}
+.ox-cell.correct .om{color:#1d9e6f}
+.ox-cell.wrong{background:#fdf1f1;border-color:#f3cdcd}
+.ox-cell.wrong .om{color:var(--wrong,#d64545)}
+.ox-cell.blank{background:#fbf6ea;border-color:#ead9b0}
+.ox-cell.blank .om{color:#b98a1e}
+.ox-legend{display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--mute);justify-content:center}
+.ox-legend b{font-weight:900}
+.ox-legend .lo{color:#1d9e6f}.ox-legend .lx{color:var(--wrong,#d64545)}.ox-legend .lb{color:#b98a1e}
+/* 결과 화면 학생 이름 인라인 편집 */
+.stu-edit{margin:6px auto 2px;max-width:260px}
+.stu-edit input{width:100%;text-align:center;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-radius:9px;color:#fff;font-size:13px;font-weight:700;padding:7px 10px;outline:none}
+.stu-edit input::placeholder{color:rgba(255,255,255,.55);font-weight:500}
+.stu-edit input:focus{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.55)}
+.wr-card{padding:14px}
+.wr-summary{display:flex;gap:8px;margin-bottom:14px}
+.wr-summary .wr-s{flex:1;text-align:center;background:var(--paper);border-radius:11px;padding:9px 4px}
+.wr-summary .wr-s b{display:block;font-size:20px;font-weight:800;color:var(--ink)}
+.wr-summary .wr-s small{font-size:11px;color:#6b7684}
+.wr-group{margin-top:12px}
+.wr-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.wr-area{font-weight:800;font-size:13.5px;color:var(--navy)}
+.wr-cnt{font-size:11.5px;color:#6b7684;background:var(--paper);padding:2px 9px;border-radius:20px;font-weight:600}
+.wr-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px}
+.wr-q{font-size:17px;font-weight:800;color:var(--ink);min-width:38px}.wr-q small{font-size:11px;font-weight:600;color:#8a94a0}
+.wr-mid{flex:1;font-size:13px;color:var(--ink)}
+.wr-tag{display:inline-block;font-size:11px;padding:1.5px 8px;border-radius:20px;background:#eef2f6;color:#4a5763;margin-left:4px;font-weight:600}
+.wr-tag.blank{background:#fde8e6;color:var(--wrong)}
+.wr-diff{display:inline-block;font-size:11px;padding:1.5px 8px;border-radius:20px;background:#fff4e0;color:#b5820e;margin-left:4px;font-weight:600}
+.wr-pt{font-size:12px;font-weight:700;color:#8a94a0}
+.wrong-chip{border:1.5px solid var(--wrong);background:var(--wrong-bg);color:var(--wrong);border-radius:10px;padding:8px 11px;min-width:60px;text-align:center}
+.wrong-chip .qn{font-family:"JetBrains Mono",monospace;font-weight:800;font-size:14px}
+.wrong-chip .det{font-size:9.5px;font-weight:600;margin-top:2px;opacity:.85}
+.wrong-chip.blank{border-color:var(--blank);background:var(--blank-bg);color:#565a63}
+.empty{text-align:center;padding:44px 20px;color:var(--mute)}
+.empty .ic{font-size:34px;margin-bottom:10px}.empty p{font-size:13.5px;font-weight:600}
+
+/* history */
+.hist-item{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px 16px;margin-bottom:11px;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px}
+.hist-item .hscore{width:52px;height:52px;border-radius:12px;background:var(--navy);color:#fff;display:grid;place-items:center;flex-shrink:0}
+.hist-item .hscore .num{font-family:"JetBrains Mono",monospace;font-size:19px;font-weight:700;line-height:1}
+.hist-item .hscore .of{font-size:9px;color:#AEBEE0}
+.hist-item .hmeta{flex:1;min-width:0}
+.hist-item .hmeta .ht{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-item .hmeta .hd{font-size:11.5px;color:var(--mute);font-weight:600;margin-top:3px}
+.hist-item .hgrade{font-size:12px;font-weight:800;color:var(--navy);background:var(--paper);padding:5px 10px;border-radius:8px;flex-shrink:0;text-align:center}
+.hist-item .hgrade small{display:block;font-size:8.5px;font-weight:700;color:var(--mute);margin-top:1px}
+.hist-del{color:var(--mute);font-size:18px;padding:6px;flex-shrink:0}
+
+/* tabbar */
+.tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:760px;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);display:flex;padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:50}
+.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--mute);font-size:10.5px;font-weight:700;padding:4px}
+.tabbar button svg{width:22px;height:22px}
+.tabbar button.on{color:var(--navy)}
+/* 결과 화면 하단 연속 채점 바: 전역 탭바 바로 위에 고정 */
+.nextbar{position:fixed;left:50%;transform:translateX(-50%);width:100%;max-width:760px;bottom:calc(64px + env(safe-area-inset-bottom));z-index:49;display:none;padding:0 14px}
+#s-result.on ~ .nextbar{display:block}
+.nextbar .inner{display:flex;gap:8px;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:14px;padding:8px;box-shadow:0 6px 22px rgba(20,40,60,.12)}
+.nextbar button{flex:1;border:none;border-radius:10px;font-weight:800;font-size:13.5px;padding:11px 6px;cursor:pointer}
+.nextbar .nb-prev{background:var(--paper);color:var(--ink);border:1px solid var(--line)}
+.nextbar .nb-next{background:var(--navy);color:#fff}
+#s-result #resultBody{padding-bottom:96px}  /* 액션바에 내용이 가리지 않도록 */
+.toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:11px;font-size:13.5px;font-weight:700;opacity:0;pointer-events:none;transition:all .3s;z-index:100;box-shadow:0 8px 24px rgba(11,18,32,.3);white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ===== 채점 화면 v2 ===== */
+.fold{margin:0 0 14px}
+.fold summary{font-size:12px;font-weight:700;color:var(--blue);cursor:pointer;padding:4px 2px;list-style:none;display:flex;align-items:center;gap:5px}
+.fold summary::before{content:"ⓘ";font-weight:800}
+.fold summary::-webkit-details-marker{display:none}
+.progress-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow);position:sticky;top:calc(62px + env(safe-area-inset-top));z-index:30}
+.progress-card .ptop{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.progress-card .ptop b{font-size:13px;font-weight:800;font-family:"JetBrains Mono",monospace;letter-spacing:-.01em}
+.progress-card .ptop b.done{color:var(--correct)}
+.progress-card .jump{font-size:11.5px;font-weight:800;color:var(--amber);background:#FFF7E6;border:1px solid #F0D9A8;border-radius:8px;padding:5px 10px}
+.progress-card .jump[hidden]{display:none}
+.progress-card .ptrack{height:8px;background:var(--paper);border-radius:5px;overflow:hidden;border:1px solid var(--line)}
+.progress-card .pfill{height:100%;width:0;background:var(--navy);border-radius:5px;transition:width .35s cubic-bezier(.2,.8,.2,1)}
+.progress-card .pfill.done{background:var(--correct)}
+.keypad{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:14px}
+.kp-cur{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.kp-nav{width:44px;height:52px;border-radius:11px;border:1.5px solid var(--line);background:#fff;font-size:22px;font-weight:800;color:var(--navy)}
+.kp-nav:active{background:var(--paper)}
+.kp-q{text-align:center;flex:1}
+.kp-q .num{font-family:"JetBrains Mono",monospace;font-size:34px;font-weight:700;line-height:1;color:var(--navy)}
+.kp-q .lab{font-size:11px;font-weight:700;color:var(--mute);margin-top:3px}
+.kp-keys{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}
+.kp-keys button{height:52px;border-radius:11px;border:1.5px solid var(--line);background:#fff;font-family:"JetBrains Mono",monospace;font-size:19px;font-weight:700;color:var(--ink);transition:transform .06s}
+.kp-keys button:active{transform:scale(.94)}
+.kp-keys button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.kp-keys button.clear{font-family:"Gothic A1",sans-serif;font-size:12.5px;font-weight:800;color:var(--mute)}
+.ansgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:7px}
+.arow{display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:10px;border:1.5px solid var(--line);background:#fff;cursor:pointer}
+.arow .no{font-family:"JetBrains Mono",monospace;font-size:11.5px;font-weight:700;color:var(--mute);width:18px;text-align:right;flex-shrink:0}
+.arow .bubs{display:flex;gap:3px;flex:1;justify-content:space-between}
+.arow .bub{width:21px;height:21px;border-radius:50%;border:1.4px solid var(--line);font-size:10px;font-weight:700;color:var(--mute);display:grid;place-items:center;font-family:"JetBrains Mono",monospace}
+.arow .bub.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.arow.blank{border-style:dashed;border-color:#E4B45C;background:#FFFBF0}
+.arow.blank .no{color:var(--amber)}
+.arow.cur{border-color:var(--navy);box-shadow:0 0 0 2px rgba(19,42,92,.18)}
+
+
+.sheet-toolbar{display:flex;gap:10px;margin-bottom:14px}
+.sheet-toolbar .btn{flex:1}
+.sheet-preview{background:#8a8f98;border-radius:14px;padding:14px;overflow:auto;-webkit-overflow-scrolling:touch}
+.sheet-scale{transform-origin:top left}
+.sheet{width:210mm;height:297mm;background:#fff;position:relative;font-family:"Gothic A1",sans-serif;color:#111;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.fid{position:absolute;background:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 100mm #000;border:0.1mm solid #000}
+.sheet .s-title{position:absolute;left:25mm;top:12mm;font-family:"Noto Serif KR",serif;font-weight:900;font-size:8mm;color:#111;letter-spacing:-0.5mm}
+.sheet .s-brand{position:absolute;left:25mm;top:6mm;font-size:3.4mm;font-weight:800;color:#132A5C;letter-spacing:0.5mm}
+.sheet .s-exam{position:absolute;left:25mm;top:24mm;font-size:3.6mm;font-weight:700;color:#333}
+.sheet .s-line{position:absolute;font-size:3mm;color:#111;font-weight:600;border-bottom:0.4mm solid #111;padding-bottom:0.5mm}
+.sheet .s-note{position:absolute;left:25mm;right:25mm;bottom:12mm;font-size:2.7mm;color:#555;line-height:1.5;font-weight:600}
+.sheet .qnum{position:absolute;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:3mm;color:#111;transform:translate(-50%,-50%);text-align:center}
+.sheet .bub{position:absolute;border:0.4mm solid #111;border-radius:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-size:2.3mm;color:#aaa;font-weight:700}
+.sheet .chlab{position:absolute;font-size:2.6mm;font-weight:800;color:#555;transform:translate(-50%,-50%)}
+.sheet .colrule{position:absolute;background:#ddd;width:0.3mm}
+@media print{
+  @page{size:A4;margin:0}
+  body{background:#fff;padding:0;max-width:none}
+  body>*{display:none !important}
+  /* [버그 수정] #printRoot는 body 직계가 아니라 section#s-print 내부에 있음.
+     조상(section.screen)이 display:none이면 자손을 block으로 지정해도 렌더되지 않아
+     인쇄 미리보기·출력이 전부 백지가 되는 문제 → 조상 체인을 함께 복원한다.
+     탭 전환으로 .on이 없는 상태에서 인쇄해도 출력되도록 !important로 강제. */
+  body>#s-print{display:block !important;padding:0 !important;margin:0 !important}
+  #printRoot{display:block !important;padding:0;margin:0}
+  #printRoot .sheet-preview{background:none;padding:0;overflow:visible;height:auto !important}
+  #printRoot .sheet-scale{transform:none !important}
+  #printRoot .sheet{box-shadow:none;margin:0}
+  #printRoot .sheet-toolbar,#printRoot .hero,#printRoot .hint,#printRoot .section-title{display:none !important}
+}
+</style>
+</head>
+<body>
+
+<div class="appbar">
+  <div class="mark">서</div>
+  <div>
+    <h1>서로국어논술 · OMR 채점기</h1>
+    <div class="sub">전용 답안지 · 오프라인 컴퓨터비전 채점</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="ghost" id="resetBtn">새 시험</button>
+</div>
+
+<!-- ===== 1. 정답표 ===== -->
+<section class="screen on" id="s-setup">
+  <div class="hero">
+    <div class="eyebrow">STEP 1 · 정답표</div>
+    <h2>정답과 시험 정보를<br>먼저 설정하세요</h2>
+    <p>정답·영역·배점을 지정해 두면, 스캔한 답안을 즉시 채점하고 영역별·난이도별로 분석합니다.</p>
+  </div>
+  <div class="card">
+    <h3><span class="n">1</span> 시험 정보</h3>
+    <div class="field">
+      <label>회차 선택</label>
+      <select id="examPreset"></select>
+    </div>
+    <div id="presetNote" class="hint" style="display:none;margin-top:0;margin-bottom:14px"></div>
+    <div class="field"><label>시험명</label><input id="examName" type="text" placeholder="예) 2025 6월 고1 전국연합학력평가"></div>
+    <div class="row2">
+      <div class="field"><label>응시일</label><input id="examDate" type="date"></div>
+      <div class="field"><label>총 문항 수</label>
+        <select id="qCount">
+          <option value="45" selected>45문항 (표준)</option>
+          <option value="30">30문항</option>
+          <option value="20">20문항</option>
+          <option value="15">15문항</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3><span class="n">2</span> 정답표 작성</h3>
+    <div class="hint" style="margin-top:0;margin-bottom:14px">각 문항의 <b>정답 번호</b>를 탭하세요. 문항별 <b>영역·난이도</b>도 지정하면 분석이 정밀해집니다.</div>
+    <button class="btn ghost" id="autoAreaBtn" style="border:1.5px dashed var(--line);border-radius:10px;margin-bottom:14px">45문항 표준 영역 구성 자동 적용 ▸</button>
+    <div class="qgrid" id="keyGrid"></div>
+  </div>
+  <button class="btn" id="toPrintBtn">답안지 만들기 →</button>
+</section>
+
+<!-- ===== 2. 답안지 인쇄 ===== -->
+<section class="screen" id="s-print">
+  <div id="printRoot">
+    <div class="hero">
+      <div class="eyebrow">STEP 2 · 답안지</div>
+      <h2>전용 답안지를<br>인쇄해 배부하세요</h2>
+      <p>일반 A4 용지에 인쇄하면 됩니다. 모서리 <b style="color:#fff">검은 사각형 4개</b>는 스캔 정렬용 등록마크이니 잘리지 않게 인쇄하세요.</p>
+    </div>
+    <div class="sheet-toolbar">
+      <button class="btn" id="printBtn">인쇄 / PDF 저장</button>
+      <button class="btn alt" id="toScanBtn">채점하러 가기 →</button>
+    </div>
+    <div class="hint" style="margin-top:0;margin-bottom:14px">인쇄 여백은 <b>‘없음’</b> 또는 <b>실제 크기(100%)</b>로 설정하세요. 축소·맞춤 인쇄하면 마크 위치가 틀어져 인식률이 떨어집니다.</div>
+    <div class="sheet-preview" id="sheetPreview">
+      <div class="sheet-scale" id="sheetScale">
+        <div class="sheet" id="omrSheet"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 3. 채점 (스캔) ===== -->
+<section class="screen" id="s-scan">
+  <div class="hero">
+    <div class="eyebrow">STEP 3 · 채점</div>
+    <h2 id="scanTitle">답안지를 촬영하세요</h2>
+    <p><b style="color:#fff">모서리 마크 4개</b>가 모두 보이게 촬영하면 자동으로 읽습니다. 촬영이 어려우면 아래 키패드로 빠르게 입력하세요.</p>
+  </div>
+
+  <div class="card">
+    <div class="field" style="margin-bottom:12px"><label>학생 이름 / 반 (선택)</label><input id="studentName" type="text" placeholder="예) 홍길동 · 고1-3반"></div>
+    <label style="display:block;font-size:12px;font-weight:700;color:var(--mute);margin-bottom:6px">답안지 종류</label>
+    <div class="mode-switch" id="tplSwitch" style="display:flex;background:var(--paper);border-radius:11px;padding:4px;gap:4px;margin-bottom:8px;border:1px solid var(--line)">
+      <button data-tpl="seoro" class="on" style="flex:1;padding:10px;font-size:12.5px;font-weight:800;border-radius:8px">서로국어학원 카드</button>
+      <button data-tpl="app" style="flex:1;padding:10px;font-size:12.5px;font-weight:800;border-radius:8px;color:var(--mute)">앱 생성 답안지</button>
+    </div>
+    <details class="fold">
+      <summary>어떤 답안지를 써야 하나요?</summary>
+      <div class="hint" style="margin-top:8px">📄 <b>서로국어학원 카드</b>는 4모서리 정렬마크가 추가된 <b>‘서로국어학원_OMR_스캔용.pdf’</b>를 인쇄해 사용하세요. 학생이 표기한 카드를 <b>네 모서리 마크가 모두 보이게</b> 촬영하면 45문항을 자동 판독합니다.<br>🎓 <b>고3 전용 카드</b>(공통 1-20 / 21-34 · 선택 35-45 3표 구성)도 자동 인식됩니다. <b>세 답란 표가 모두 가려지지 않게</b> 카드 전체를 촬영하세요.</div>
+    </details>
+    <div class="scan-cta">
+      <button id="camBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        답안지 촬영<small>카메라로 바로 인식</small>
+      </button>
+      <button class="line" id="galBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        사진 불러오기<small>갤러리에서 선택</small>
+      </button>
+    </div>
+  </div>
+
+  <div class="progress-card">
+    <div class="ptop">
+      <b id="progLabel">0 / 45 문항 표기</b>
+      <button class="jump" id="jumpBlank">미표기로 이동 ↓</button>
+    </div>
+    <div class="ptrack"><div class="pfill" id="progFill"></div></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:10px">직접 입력 <span style="font-weight:600;color:var(--mute);font-size:11px;margin-left:4px">번호를 누르면 다음 문항으로 넘어갑니다</span></h3>
+    <div class="keypad">
+      <div class="kp-cur">
+        <button class="kp-nav" id="kpPrev" aria-label="이전 문항">‹</button>
+        <div class="kp-q"><div class="num" id="kpNum">1</div><div class="lab" id="kpMeta">번 문항</div></div>
+        <button class="kp-nav" id="kpNext" aria-label="다음 문항">›</button>
+      </div>
+      <div class="kp-keys" id="kpKeys">
+        <button data-kp="1">1</button><button data-kp="2">2</button><button data-kp="3">3</button><button data-kp="4">4</button><button data-kp="5">5</button>
+        <button class="clear" data-kp="0">지움</button>
+      </div>
+    </div>
+    <div class="ansgrid" id="ansGrid"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn alt" id="backToPrint">← 답안지</button>
+    <button class="btn" id="gradeBtn">채점하기</button>
+  </div>
+</section>
+
+<!-- ===== 결과 ===== -->
+<section class="screen" id="s-result"><div id="resultBody"></div></section>
+
+<!-- ===== 기록 ===== -->
+<section class="screen" id="s-history">
+  <div class="section-title" style="margin-top:6px">채점 기록</div>
+  <div id="histBody"></div>
+</section>
+
+<input type="file" id="fileCam" accept="image/jpeg,image/png" capture="environment" style="display:none">
+<input type="file" id="fileGal" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" style="display:none">
+
+<div class="modal-mask" id="scanMask"><div class="modal"><div class="grip"></div><div id="scanContent"></div></div></div>
+
+<nav class="tabbar">
+  <button data-tab="setup" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>정답표</button>
+  <button data-tab="print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>답안지</button>
+  <button data-tab="scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>채점</button>
+  <button data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>기록</button>
+</nav>
+<div class="nextbar" id="nextBar"><div class="inner">
+  <button class="nb-prev" id="nbPrev">← 채점 화면</button>
+  <button class="nb-next" id="nbNext">➕ 다음 학생 채점</button>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+   서로국어논술 OMR 채점기 — 순수 JS 컴퓨터비전 (외부 라이브러리 없음)
+   ===================================================================== */
+const AREAS=["화작","문법","독서","문학","매체"];
+const AREA_FULL={"화작":"화법과 작문","문법":"문법(언어)","독서":"독서(비문학)","문학":"문학","매체":"매체"};
+const DIFF=["하","중","상"];
+// 고1 공통국어 표준 영역 구성 (2022 6월 고1 구조 기준)
+const STD45=(function(){const a=Array(45).fill("문학");
+  for(let i=0;i<10;i++)a[i]="화작"; for(let i=10;i<15;i++)a[i]="문법";
+  for(let i=15;i<25;i++)a[i]="독서"; for(let i=25;i<35;i++)a[i]="문학";
+  for(let i=35;i<40;i++)a[i]="독서"; for(let i=40;i<45;i++)a[i]="문학";
+  return a;})();
+
+// ===== 회차 라이브러리 (검증된 실제 데이터만 정답 포함) =====
+// area: 화작/문법/독서/문학, pts: 3점 문항 목록
+function buildKey(ansStr, areaFn, pts3, allCorrectList){
+  const ans=ansStr.trim().split(/\s+/).map(Number);
+  const ac=allCorrectList||[];
+  return ans.map((a,i)=>({ans:a, area:areaFn(i+1), diff:"중", points: pts3.includes(i+1)?3:2,
+    allCorrect: ac.includes(i+1)}));
+}
+// 6월: 독서 16-25·36-40, 문학 26-35·41-45
+function area2022_06(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=25)return"독서"; if(q<=35)return"문학";
+  if(q<=40)return"독서"; return"문학";
+}
+// 3월: 독서 16-30, 문학 31-45
+function area2022_03(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=30)return"독서"; return"문학";
+}
+// 9월: 독서 16-25·30-34, 문학 26-29·35-45
+function area2022_09(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=25)return"독서"; if(q<=29)return"문학";
+  if(q<=34)return"독서"; return"문학";
+}
+// 2023 3월: 문학 16-18·23-27·34-37·43-45, 독서 19-22·28-33·38-42
+function area2023_03(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=18)return"문학"; if(q<=22)return"독서";
+  if(q<=27)return"문학"; if(q<=33)return"독서";
+  if(q<=37)return"문학"; if(q<=42)return"독서";
+  return"문학";
+}
+// 6월(2023): 독서 16-25(인문·과학), 문학 26-37(현대소설·고전소설·고전시가복합), 독서 38-42(사회), 문학 43-45(현대시)
+function area2023_06(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=25)return"독서"; if(q<=37)return"문학";
+  if(q<=42)return"독서"; return"문학";
+}
+// 11월: 독서 16-21·25-29·38-41, 문학 22-24·30-37·42-45
+function area2022_11(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=21)return"독서"; if(q<=24)return"문학";
+  if(q<=29)return"독서"; if(q<=37)return"문학";
+  if(q<=41)return"독서"; return"문학";
+}
+// 9월(2023): 문학 16-20(갈래복합), 독서 21-26(인문), 문학 27-29(현대시), 독서 30-38(사회+기술), 문학 39-45(고전소설+현대소설)
+function area2023_09(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=20)return"문학"; if(q<=26)return"독서";
+  if(q<=29)return"문학"; if(q<=38)return"독서";
+  return"문학";
+}
+// 11월(2023): 독서 16-30(인문+과학+사회), 문학 31-45(현대소설+고전시가수필+현대시+고전소설)
+function area2023_11(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=30)return"독서"; return"문학";
+}
+// 3월(2024): 문학 16-20(현대시+고전시가), 독서 21-24(예술), 문학 25-32(현대소설+고전소설), 독서 33-43(인문+기술), 문학 44-45(희곡)
+function area2024_03(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=20)return"문학"; if(q<=24)return"독서";
+  if(q<=32)return"문학"; if(q<=43)return"독서";
+  return"문학";
+}
+// 6월(2024): 독서 16-30(주제통합+기술+사회), 문학 31-45(고전소설+고전시가복합+현대소설+현대시)
+function area2024_06(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=30)return"독서"; return"문학";
+}
+// 9월(2024): 독서 16-25(인문+기술), 문학 26-32(현대시+현대소설), 독서 33-37(사회), 문학 38-45(갈래복합+고전소설)
+function area2024_09(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=25)return"독서"; if(q<=32)return"문학";
+  if(q<=37)return"독서"; return"문학";
+}
+// 10월(2024): 독서 16-30(사회+인문+기술), 문학 31-45(현대시+고전복합+현대소설+고전소설). 11월 학평이 10월로 이동한 첫 회차
+function area2024_10(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=30)return"독서"; return"문학";
+}
+// [고2] 6월(2025): 독서 16-20(과학), 문학 21-25(고전 갈래복합), 독서 26-30(사회), 문학 31-37(현대소설+현대시), 독서 38-42(주제통합), 문학 43-45(고전소설)
+function areaH2_2025_06(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=20)return"독서"; if(q<=25)return"문학";
+  if(q<=30)return"독서"; if(q<=37)return"문학";
+  if(q<=42)return"독서"; return"문학";
+}
+// [고2] 9월(2025): 독서 16-26(인문 주제통합+과학기술), 문학 27-33(현대소설+고전소설), 독서 34-37(사회), 문학 38-45(갈래복합+현대시)
+function areaH2_2025_09(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=26)return"독서"; if(q<=33)return"문학";
+  if(q<=37)return"독서"; return"문학";
+}
+// [고2] 3월(2025): 독서 16-30(인문 주제통합+사회+과학기술), 문학 31-45(현대소설+고전소설+현대시+갈래복합)
+function areaH2_2025_03(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=30)return"독서"; return"문학";
+}
+// [고2] 10월(2025): 독서 16-30(가다머 인문+수치예보 과학+책임주의 사회), 문학 31-45(고전소설+현대소설+갈래복합+현대시)
+function areaH2_2025_10(q){
+  if(q<=10)return"화작"; if(q<=15)return"문법";
+  if(q<=30)return"독서"; return"문학";
+}
+const EXAM_LIBRARY=[
+  {
+    id:"2022-03-h1", order:1,
+    name:"2022 3월 고1 전국연합학력평가",
+    date:"2022-03-24", host:"서울특별시교육청",
+    qCount:45, verified:true,
+    // 공식 정답표·정답과해설 PDF 교차검증 완료
+    key:buildKey(
+      "4 4 5 1 2 5 4 1 2 2 5 1 1 2 3 5 1 3 3 4 2 4 4 1 2 1 2 5 4 4 1 4 3 5 5 3 2 2 3 5 3 3 5 3 1",
+      area2022_03, [3,6,11,19,25,29,33,36,41,44]),
+    cuts:[76,68,60,52,44,37,30,23,0] // 등급컷(원점수) 1~9등급, 서울교육청 공식 발표
+  },
+  {
+    id:"2022-06-h1", order:2,
+    name:"2022 6월 고1 전국연합학력평가",
+    date:"2022-06-09", host:"부산광역시교육청",
+    qCount:45, verified:true,
+    // 공식 정답표·정답과해설 PDF 교차검증 완료
+    key:buildKey(
+      "2 2 3 5 2 4 3 5 5 2 1 5 5 4 3 3 2 4 4 1 1 5 4 3 3 2 2 2 1 4 5 1 2 2 3 1 5 4 3 4 4 1 3 5 1",
+      area2022_06, [3,9,15,19,24,28,31,34,38,42]),
+    cuts:[91,83,73,62,49,37,26,20,0]
+  },
+  {
+    id:"2022-09-h1", order:3,
+    name:"2022 9월 고1 전국연합학력평가",
+    date:"2022-08-31", host:"인천광역시교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료
+    key:buildKey(
+      "4 4 5 2 3 2 2 3 4 1 4 5 3 1 2 4 5 5 3 5 1 3 2 3 2 5 5 1 4 3 4 1 3 1 5 2 5 2 2 4 2 1 3 5 1",
+      area2022_09, [6,9,13,20,25,28,33,38,42,45]),
+    cuts:[82,73,63,53,42,32,23,18,0]
+  },
+  {
+    id:"2022-11-h1", order:4,
+    name:"2022 11월 고1 전국연합학력평가",
+    date:"2022-11-23", host:"경기도교육청",
+    qCount:45, verified:true,
+    // 공식 정답과해설 PDF(2가지 추출 동일) 교차검증 완료
+    key:buildKey(
+      "3 4 3 4 2 5 3 1 5 1 1 4 5 3 4 2 4 4 5 4 3 4 4 3 5 1 4 4 4 5 5 2 3 1 2 4 3 2 1 2 5 5 5 4 2",
+      area2022_11, [6,9,12,20,24,28,33,37,40,45]),
+    cuts:[88,80,70,59,45,33,23,17,0]
+  },
+  {
+    id:"2023-11-h1", order:8,
+    name:"2023 11월 고1 전국연합학력평가",
+    date:"2023-11-16", host:"경기도교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료
+    key:buildKey(
+      "2 3 4 4 2 4 5 3 5 4 1 2 4 2 1 4 3 1 5 3 2 2 2 3 1 3 2 3 3 1 1 4 5 4 5 5 4 4 3 4 4 5 3 5 4",
+      area2023_11, [6,9,12,19,23,28,34,38,41,45]),
+    cuts:[88,80,69,56,41,29,20,17,0] // 12.19 시행분(정정) 등급컷
+  },
+  {
+    id:"2023-09-h1", order:7,
+    name:"2023 9월 고1 전국연합학력평가",
+    date:"2023-09-01", host:"인천광역시교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료
+    key:buildKey(
+      "5 4 5 2 4 3 1 2 4 4 5 3 1 2 5 1 4 2 3 5 3 4 5 4 2 4 1 5 5 1 5 2 3 3 1 3 2 1 3 2 5 1 4 3 2",
+      area2023_09, [5,9,13,19,24,29,32,36,42,45]),
+    cuts:[84,76,65,54,41,30,22,18,0]
+  },
+  {
+    id:"2023-06-h1", order:6,
+    name:"2023 6월 고1 전국연합학력평가",
+    date:"2023-06-01", host:"부산광역시교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료. 12번 문항은 전원 정답 처리(2023.07.04 공지)
+    key:buildKey(
+      "5 2 2 4 3 4 5 2 5 3 1 1 5 5 3 1 1 2 3 2 1 4 3 5 3 4 1 1 4 4 5 5 3 3 4 2 5 2 2 4 5 3 4 1 3",
+      area2023_06, [6,9,11,19,25,28,32,34,42,45], [12]),
+    cuts:[87,78,68,57,46,36,27,21,0]
+  },
+  {
+    id:"2023-03-h1", order:5,
+    name:"2023 3월 고1 전국연합학력평가",
+    date:"2023-03-23", host:"서울특별시교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료
+    key:buildKey(
+      "2 2 1 5 3 3 5 3 4 1 5 4 3 5 3 2 4 3 5 1 1 2 4 4 4 1 4 2 5 4 5 2 2 1 2 5 5 1 2 3 3 3 1 4 5",
+      area2023_03, [7,9,13,18,22,27,30,37,41,45]),
+    cuts:[95,89,81,70,58,47,36,25,0]
+  },
+  {
+    id:"2024-03-h1", order:9,
+    name:"2024 3월 고1 전국연합학력평가",
+    date:"2024-03-28", host:"서울특별시교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료
+    key:buildKey(
+      "2 5 2 4 1 2 1 3 5 4 4 1 2 1 5 1 3 2 4 4 3 1 4 2 1 5 3 5 4 4 1 5 2 2 5 3 5 3 4 5 3 3 3 5 3",
+      area2024_03, [6,10,12,17,24,27,32,37,42,45]),
+    cuts:[91,85,77,67,55,44,34,24,0]
+  },
+  {
+    id:"2024-06-h1", order:10,
+    name:"2024 6월 고1 전국연합학력평가",
+    date:"2024-06-04", host:"부산광역시교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료
+    key:buildKey(
+      "3 3 5 3 2 5 4 3 5 2 1 4 5 1 5 4 4 1 5 1 4 5 5 1 3 1 4 2 5 3 1 1 2 4 3 2 5 3 4 1 2 2 4 4 3",
+      area2024_06, [6,9,12,20,24,29,34,37,42,45]),
+    cuts:[87,79,69,58,45,33,23,18,0] // 최고점 99점 회차(만점자 없음)
+  },
+  {
+    id:"2024-09-h1", order:11,
+    name:"2024 9월 고1 전국연합학력평가",
+    date:"2024-09-04", host:"인천광역시교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료
+    key:buildKey(
+      "4 4 5 2 2 1 3 4 2 5 4 3 2 4 1 5 2 2 2 5 1 5 3 3 4 1 4 1 3 4 3 4 1 5 1 2 1 5 4 1 4 3 1 5 3",
+      area2024_09, [5,10,14,20,24,28,32,36,41,45]),
+    cuts:[87,78,67,55,42,31,23,18,0]
+  },
+  {
+    id:"2024-10-h1", order:12,
+    name:"2024 10월 고1 전국연합학력평가",
+    date:"2024-10-15", host:"경기도교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료
+    key:buildKey(
+      "2 5 5 1 1 2 4 4 5 3 4 3 5 5 1 5 2 3 4 3 5 2 3 5 4 2 5 4 3 4 4 4 2 4 4 5 5 4 2 2 5 2 2 5 5",
+      area2024_10, [6,10,12,20,25,30,33,37,41,45]),
+    cuts:[89,80,68,55,40,29,22,15,0] // 2015 개정 마지막 고1 학평(11월→10월 이동 첫 회차)
+  },
+  {
+    id:"2025-03-h2", order:13,
+    name:"2025 3월 고2 전국연합학력평가",
+    date:"2025-03-26", host:"서울특별시교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료
+    key:buildKey(
+      "1 5 4 2 5 2 1 5 3 2 3 3 1 4 2 3 4 2 3 5 1 2 2 3 1 5 1 3 1 5 2 4 3 5 4 3 4 2 2 4 5 4 3 1 4",
+      areaH2_2025_03, [2,9,12,20,25,29,34,38,41,45]),
+    // 등급컷(원점수) 1~9등급, 확정컷 이미지 기준 (최고점 100·표준점수 146)
+    cuts:[89,80,68,57,44,34,25,19,0]
+  },
+  {
+    id:"2025-06-h2", order:14,
+    name:"2025 6월 고2 전국연합학력평가",
+    date:"2025-06-04", host:"부산광역시교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료 (고2 첫 등록 회차)
+    key:buildKey(
+      "3 3 4 4 5 1 4 1 3 4 5 3 3 1 2 3 4 3 1 5 1 2 1 4 2 3 5 5 1 1 2 2 5 4 4 5 5 2 1 3 2 2 2 4 5",
+      areaH2_2025_06, [4,10,12,19,24,29,34,37,40,45]),
+    // 등급컷(원점수) 1~9등급, 확정컷 이미지 기준 (최고점 100·표준점수 144)
+    cuts:[89,80,70,58,44,30,22,18,0]
+  },
+  {
+    id:"2025-09-h2", order:15,
+    name:"2025 9월 고2 전국연합학력평가",
+    date:"2025-09-03", host:"인천광역시교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료
+    key:buildKey(
+      "1 4 3 2 4 4 5 3 5 2 1 2 2 1 4 5 3 2 1 4 1 1 2 5 4 5 1 2 3 5 2 4 5 2 4 2 3 3 5 4 3 5 1 3 4",
+      areaH2_2025_09, [7,9,15,20,25,30,33,37,42,45]),
+    // 등급컷(원점수) 1~9등급, 확정컷 이미지 기준 (최고점 100·표준점수 147)
+    cuts:[86,77,68,57,45,32,22,17,0]
+  },
+  {
+    id:"2025-10-h2", order:16,
+    name:"2025 10월 고2 전국연합학력평가",
+    date:"2025-10-14", host:"경기도교육청",
+    qCount:45, verified:true,
+    // 공식 정답표(이미지)·정답과해설 PDF 45/45 교차검증 완료
+    key:buildKey(
+      "4 4 5 5 4 5 5 4 4 4 1 4 2 1 3 2 3 4 5 5 3 5 5 1 4 3 1 1 5 1 2 3 5 5 1 5 1 2 3 4 3 5 2 2 4",
+      areaH2_2025_10, [6,9,12,20,25,29,34,38,42,45]),
+    // 등급컷(원점수) 1~9등급, 확정컷 이미지 기준 (최고점 100·표준점수 140)
+    cuts:[90,83,73,60,43,28,20,14,0]
+  }
+];
+
+/* ===== 고3 · 2023학년도 (공통 1~34 + 선택 35~45 분리 체계) =====
+   2026-07 검수 프로젝트 확정분. 화작·언매의 3점 문항 위치가 회차마다
+   서로 달라(7회차 중 완전 일치 0회) 선택과목별로 정답표를 별도 등록한다.
+   공통 영역: 독서 1~17 · 문학 18~34 (등록 회차 전부 문제지 대조로 확인).
+   언매 영역: 언어(문법) 35~39 · 매체 40~45.
+   등급컷: 확정 등급컷 표(원점수·선택과목별) 8회차 전량 전사 등록.
+   정답: 8회차 전량 등록(공통은 화작·언매 정답지 상호 일치 확인).
+   2026-07: 7월·10월 [3점] 표기 및 정답표 원본 대조 완료 → 7회차 전량 확정. 잔여 자료 없음.
+   2026-08: 2024학년도 시리즈 개시 — 10월 학평(2023-10-12 시행, 서울) 및
+   수능(2023-11-16 시행, 홀수형) 추가. 두 회차 모두 정답·3점·등급컷 전 항목 확정 등록.
+   2026-08(추가): 2024학년도 9월 모평(2023-09-06 시행, 평가원) 등록 —
+   공식 정답표 이미지 + 화작·언매 문제지 원본 + 확정 등급컷 표 3종 대조 완료. */
+function areaH3(subj){
+  return q=>{ if(q<=17)return"독서"; if(q<=34)return"문학";
+    if(subj==="화작")return"화작"; return q<=39?"문법":"매체"; };
+}
+function buildKeyH3(commonStr, selStr, ptsC, ptsS, subj){
+  const c=commonStr?commonStr.trim().split(/\s+/).map(Number):Array(34).fill(0);
+  const s=selStr?selStr.trim().split(/\s+/).map(Number):Array(11).fill(0);
+  const ans=c.concat(s), af=areaH3(subj);
+  return ans.map((a,i)=>{const q=i+1;
+    return {ans:a, area:af(q), diff:"중",
+      points:(q<=34?ptsC:ptsS).includes(q)?3:2, allCorrect:false};});
+}
+const H3_SETS=[
+  { base:"2023h3-03", order:21,
+    name:"2022 3월 고3 전국연합학력평가", date:"2022-03-24", host:"서울특별시교육청",
+    common:"4 3 1 3 5 3 5 1 5 2 3 1 3 2 2 2 3 5 2 3 1 4 5 4 4 1 5 1 2 4 5 4 2 4",
+    ptsC:[2,8,12,17,21,27,30,34],
+    hw:"3 5 5 2 4 2 1 4 3 1 4", ptsHw:[37,40],
+    em:"1 1 4 4 1 5 3 5 3 2 2", ptsEm:[37,42],
+    cutsHw:[93,85,76,66,53,40,28,20,0], cutsEm:[88,80,72,61,49,36,25,18,0],
+    note:"공통 정답표 등록 완료(화작·언매 정답지 상호 일치). 선택 정답은 기존 검수 확정값과 정답지 원본이 일치함을 교차 확인. 3점: 공통 2·8·12·17·21·27·30·34 / 화작 37·40 / 언매 37·42."},
+  { base:"2023h3-04", order:22,
+    name:"2022 4월 고3 전국연합학력평가", date:"2022-04-13", host:"경기도교육청",
+    common:"3 5 2 4 1 3 5 3 4 3 4 2 2 4 1 5 3 4 2 5 5 5 5 4 4 2 1 4 3 3 3 1 5 4",
+    ptsC:[2,8,13,16,22,25,30,34],
+    hw:"4 5 5 3 3 2 4 2 1 5 4", ptsHw:[37,40],
+    em:"5 2 4 4 3 4 5 2 1 4 4", ptsEm:[36,43],
+    cutsHw:[98,92,82,72,57,42,27,20,0], cutsEm:[94,88,79,69,55,40,26,19,0],
+    note:"화작·언매 정답표 + 문제지 [3점] 표기 전수 대조 완료(공통 2·8·13·16·22·25·30·34 / 화작 37·40 / 언매 36·43). 이 회차 역시 화작·언매 3점 위치가 서로 다름."},
+  { base:"2023h3-06", order:23,
+    name:"2023학년도 6월 모의평가 (고3)", date:"2022-06-09", host:"한국교육과정평가원",
+    common:"1 5 4 1 3 4 1 2 3 1 2 4 3 1 5 4 2 4 3 4 5 5 2 2 1 1 2 3 1 3 5 2 4 1",
+    ptsC:[3,8,13,16,21,27,31,34],
+    hw:"1 4 3 2 5 2 4 5 3 5 3", ptsHw:[36,40],
+    em:"3 2 1 5 3 2 5 4 4 1 3", ptsEm:[39,42],
+    cutsHw:[88,79,71,61,48,36,25,19,0], cutsEm:[84,76,68,58,45,33,22,16,0],
+    note:"화작·언매 정답표 + 문제지 [3점] 표기 전수 대조 완료. 기존 ‘36·39 공통’ 가정은 오류로 확인되어 화작 36·40 / 언매 39·42로 분리 등록."},
+  { base:"2023h3-07", order:24,
+    name:"2022 7월 고3 전국연합학력평가", date:"2022-07-06", host:"인천광역시교육청",
+    common:"4 5 4 2 2 5 4 3 1 3 2 4 4 5 2 3 3 5 1 4 1 1 4 2 3 5 1 5 3 3 2 2 5 4",
+    ptsC:[2,8,12,16,20,26,30,34],
+    hw:"5 2 4 3 3 5 2 1 2 5 5", ptsHw:[36,44],
+    em:"4 3 1 4 2 5 5 4 3 2 2", ptsEm:[36,43],
+    cutsHw:[95,89,81,70,54,34,23,19,0], cutsEm:[94,88,80,69,53,33,21,18,0],
+    note:"화작·언매 문제지 [3점] 표기 전수 확인 + 정답표 원본 대조 완료(2026-07). 3점: 공통 2·8·12·16·20·26·30·34 / 화작 36·44 / 언매 36·43. 36번은 양 과목 3점이지만 문항·정답이 서로 다름(화작 ②, 언매 ③)."},
+  { base:"2023h3-09", order:25,
+    name:"2023학년도 9월 모의평가 (고3)", date:"2022-08-31", host:"한국교육과정평가원",
+    common:"1 4 1 3 1 5 5 3 1 2 4 2 4 2 5 5 1 4 2 3 4 1 4 5 5 4 3 5 4 3 3 4 3 2",
+    ptsC:[2,8,13,16,21,23,31,34],
+    hw:"4 4 3 1 2 2 5 2 1 5 2", ptsHw:[40,45],
+    em:"3 3 4 5 4 5 2 2 1 3 1", ptsEm:[37,45],
+    cutsHw:[93,87,80,71,57,43,27,19,0], cutsEm:[88,82,75,66,53,39,24,16,0],
+    note:"화작·언매 정답표 + 문제지 [3점] 표기 전수 대조 완료. 기존 ‘37·40 공통’ 가정은 오류로 확인되어 화작 40·45 / 언매 37·45로 분리 등록."},
+  { base:"2023h3-10", order:26,
+    name:"2022 10월 고3 전국연합학력평가", date:"2022-10-12", host:"서울특별시교육청",
+    common:"5 1 2 3 2 1 3 2 1 2 5 5 4 4 4 1 1 3 3 4 3 4 2 2 4 3 1 4 5 5 5 2 1 3",
+    ptsC:[2,6,11,15,22,26,28,34],
+    hw:"3 1 5 4 2 5 3 1 4 5 2", ptsHw:[37,44],
+    em:"5 4 1 5 5 4 2 1 3 4 3", ptsEm:[37,45],
+    cutsHw:[90,83,76,66,54,34,21,18,0], cutsEm:[86,80,73,64,51,32,19,16,0],
+    note:"화작·언매 문제지 [3점] 표기 전수 확인 + 정답표 원본 대조 완료(2026-07). 3점: 공통 2·6·11·15·22·26·28·34 / 화작 37·44 / 언매 37·45. 37번은 양 과목 3점이지만 문항·정답이 서로 다름(화작 ⑤, 언매 ①)."},
+  { base:"2023h3-su", order:27,
+    name:"2023학년도 대학수학능력시험 (홀수형)", date:"2022-11-17", host:"한국교육과정평가원",
+    common:"4 5 1 4 5 3 2 5 2 4 5 2 5 3 4 4 1 4 3 3 5 1 5 3 3 4 1 5 1 2 1 4 2 3",
+    ptsC:[2,8,12,17,21,24,30,34],
+    hw:"1 5 3 4 4 3 2 4 5 2 1", ptsHw:[41,45],
+    em:"2 4 1 4 1 2 1 3 5 4 3", ptsEm:[38,43],
+    cutsHw:[96,92,86,79,67,53,37,24,0], cutsEm:[92,88,82,75,64,49,33,21,0],
+    note:"출처 3종(문제지·해설·정답표) 교차 일치 + 확정 등급컷(원점수) 등록. 기존 ‘38·41 공통’ 가정은 오류로 확인되어 화작 41·45 / 언매 38·43으로 분리 등록."},
+  { base:"2024h3-07", order:28,
+    name:"2023 7월 고3 전국연합학력평가", date:"2023-07-11", host:"인천광역시교육청",
+    common:"4 4 2 5 1 4 3 4 5 2 3 4 1 5 2 2 5 1 5 3 4 1 4 3 2 1 4 2 3 1 1 3 5 2",
+    ptsC:[2,8,12,17,21,25,29,34],
+    hw:"1 4 4 3 5 2 5 4 4 5 5", ptsHw:[39,45],
+    em:"1 4 4 5 4 1 5 5 5 2 3", ptsEm:[37,39],
+    cutsHw:[92,85,75,62,47,31,23,16,0], cutsEm:[89,82,73,60,44,29,20,13,0],
+    note:"화작·언매 공식 정답표(이미지) + 문제지 [3점] 표기 전수 대조 완료(공통 1~34 화작·언매 상호 일치, 2026-08). 3점: 공통 2·8·12·17·21·25·29·34 / 화작 39·45 / 언매 37·39. 등급컷: 확정 원점수 컷 전사(표점 최고 141·1컷 표점 132, 화작·언매 표점/백분위 컷 동일 회차). 공통 영역: 독서 1~17(추론적읽기·도가/우연철학·법해석·이중편파레이더) · 문학 18~34(조웅전·관촌수필·귀산음/노계가/거꾸로보기·나무처럼/별을굽다) — areaH3 기본 배치와 일치. ※ 동일 인천 주관 2022년 7월 시행분(2023h3-07)과 별개 회차."},
+  { base:"2024h3-09", order:29,
+    name:"2024학년도 9월 모의평가 (고3)", date:"2023-09-06", host:"한국교육과정평가원",
+    common:"2 3 3 3 5 4 1 5 4 5 2 4 5 3 4 5 1 5 2 3 3 2 4 4 3 2 4 1 4 5 4 2 4 1",
+    ptsC:[3,6,11,16,21,27,31,34],
+    hw:"2 4 3 4 5 1 5 1 3 5 5", ptsHw:[40,45],
+    em:"4 3 5 2 1 5 2 5 1 3 4", ptsEm:[38,42],
+    cutsHw:[91,84,77,68,58,46,30,19,0], cutsEm:[88,81,73,65,55,43,27,16,0],
+    note:"화작·언매 공식 정답표(이미지) + 문제지 [3점] 표기 전수 대조 완료(공통 1~34 화작·언매 상호 일치, 2026-08). 3점: 공통 3·6·11·16·21·27·31·34 / 화작 40·45 / 언매 38·42. 등급컷: 확정 원점수 컷 전사(표점 최고 142·1컷 표점 130, 화작·언매 표점/백분위 컷 동일 회차). 공통 영역: 독서 1~17(읽기발달·데이터이동권·압전효과·조선신분제) · 문학 18~34(숙영낭자전·월훈/연1/문의당기·원미동시인·성산별곡/사설시조) — areaH3 기본 배치와 일치."},
+  { base:"2024h3-10", order:30,
+    name:"2023 10월 고3 전국연합학력평가", date:"2023-10-12", host:"서울특별시교육청",
+    common:"4 2 2 3 2 5 1 5 2 5 5 4 3 1 3 2 2 5 2 3 4 3 4 2 1 4 4 1 1 5 1 3 3 5",
+    ptsC:[2,6,10,15,19,26,30,34],
+    hw:"1 4 1 3 4 5 2 3 1 2 4", ptsHw:[36,45],
+    em:"3 2 4 1 5 2 1 1 3 4 4", ptsEm:[35,42],
+    cutsHw:[98,94,87,78,63,38,23,19,0], cutsEm:[97,92,85,76,61,35,20,16,0],
+    note:"화작·언매 문제지 [3점] 표기 전수 확인 + 정답표 교차 대조 완료(공통 1~34 화작·언매 상호 일치, 2026-08). 3점: 공통 2·6·10·15·19·26·30·34 / 화작 36·45 / 언매 35·42. 등급컷: 확정 원점수 컷 전사(표점 최고 128). 문제지 공식 표제는 교육청 표기 관례상 ‘2023학년도 10월’이나, 앱 시리즈 분류는 수능 학년도 기준(2024학년도 시리즈)."},
+  { base:"2024h3-su", order:31,
+    name:"2024학년도 대학수학능력시험 (홀수형)", date:"2023-11-16", host:"한국교육과정평가원",
+    common:"5 3 1 5 3 2 2 3 1 5 2 3 1 4 4 5 4 2 1 3 5 2 1 3 3 2 5 1 4 1 2 2 3 4",
+    ptsC:[3,6,10,16,21,27,31,34],
+    hw:"4 5 4 4 5 1 3 3 2 5 1", ptsHw:[40,45],
+    em:"4 4 1 3 5 2 1 5 3 4 5", ptsEm:[39,45],
+    cutsHw:[88,80,72,63,52,42,32,22,0], cutsEm:[84,77,69,59,49,39,29,19,0],
+    note:"화작·언매 문제지 [3점] 표기 전수 확인 + 정답표 교차 대조 완료(공통 1~34 화작·언매 상호 일치, 2026-08). 3점: 공통 3·6·10·16·21·27·31·34 / 화작 40·45 / 언매 39·45. 등급컷: 확정 원점수 컷 전사(표점 최고 150·1컷 표점 133) — 언매 3컷 68.9는 정수 채점 동치값 69로 등록."}
+];
+H3_SETS.forEach(s=>{
+  [["화작","hw","ptsHw","hwajak","화법과 작문","cutsHw"],["언매","em","ptsEm","eonmae","언어와 매체","cutsEm"]]
+  .forEach(([subj,ansK,ptsK,slug,full,cutsK])=>{
+    EXAM_LIBRARY.push({
+      id:`${s.base}-${slug}`, order:s.order, grp:"h3", subject:subj,
+      name:`${s.name} · ${full}`,
+      date:s.date, host:s.host, qCount:45,
+      verified:!s.partial && !s.noKey && !s.ptsPending,
+      key:s.noKey?null:buildKeyH3(s.common, s[ansK], s.ptsC, s[ptsK], subj),
+      cuts:s[cutsK]||null, note:s.note
+    });
+  });
+});
+let currentExamId=null;
+
+let state={qCount:45,key:[],ans:[]};
+
+/* ---------- 답안지 기하 (인쇄·스캔 공유 단일 정의) ----------
+   좌표계: 4개 등록마크 중심이 정규화 사각형 (0,0)=좌상, (1,0)=우상,
+   (0,1)=좌하, (1,1)=우하 를 이룬다. 모든 버블은 이 정규화 좌표로 정의.  */
+const SHEET={
+  pageW:210, pageH:297,          // mm (A4)
+  fx0:25, fy0:45, fx1:185, fy1:275, // 등록마크 중심 (mm)
+  fidSize:9,                     // 마크 사각형 한 변 (mm)
+  bubbleD:5.6,                   // 버블 지름 (mm)
+  rowsTop:0.055, rowsBottom:0.985,
+  uL:0.015, uR:0.985
+};
+function norm2mm(u,v){ return [SHEET.fx0+u*(SHEET.fx1-SHEET.fx0), SHEET.fy0+v*(SHEET.fy1-SHEET.fy0)]; }
+
+/* 문항 배치: 열은 세로로 채운다. 반환: 배열(각 문항) + .geo(동적 크기)
+   줄간격(rowH)과 선택지 간격(gap)이 페이지를 꽉 채우도록 계산되며,
+   버블 지름과 글자 크기는 그 간격에 비례해 자동 조정된다. */
+function layout(n){
+  const cols=Math.min(3, Math.ceil(n/15));
+  const rows=Math.ceil(n/cols);
+  const colW=(SHEET.uR-SHEET.uL)/cols;
+  const rowH=(SHEET.rowsBottom-SHEET.rowsTop)/rows;      // 줄간격(정규화)
+  // 동적 크기 산출: 줄간격·선택지간격(mm)에 맞춰 버블/글자 스케일
+  const rowH_mm=rowH*(SHEET.fy1-SHEET.fy0);
+  const gapN=(colW-0.095)/4;                             // 선택지 간 정규화 간격
+  const gap_mm=gapN*(SHEET.fx1-SHEET.fx0);
+  let bubbleD=Math.min(rowH_mm*0.66, gap_mm*0.80);       // 세로·가로 중 작은 쪽
+  bubbleD=Math.max(3.6, Math.min(6.6, bubbleD));          // 하한/상한
+  const qnumFont=Math.max(2.4, Math.min(3.8, bubbleD*0.56));
+  const labelFont=Math.max(2.2, Math.min(3.4, bubbleD*0.5));
+  const digitFont=+(bubbleD*0.42).toFixed(2);
+  const out=[];
+  for(let q=1;q<=n;q++){
+    const k=Math.floor((q-1)/rows);      // 열
+    const r=(q-1)%rows;                    // 행
+    const colLeft=SHEET.uL+k*colW;
+    const numU=colLeft+0.028;
+    const bStart=colLeft+0.075, bEnd=colLeft+colW-0.02;
+    const gap=(bEnd-bStart)/4;
+    const v=SHEET.rowsTop+(r+0.5)*rowH;
+    const bubbles=[];
+    for(let c=0;c<5;c++) bubbles.push({c:c+1,u:bStart+c*gap,v});
+    out.push({q,numU,v,bubbles, col:k, headU:(bStart+bEnd)/2, bStart, gap});
+  }
+  out.geo={cols,rows,rowH,rowH_mm,bubbleD,qnumFont,labelFont,digitFont};
+  return out;
+}
+
+/* ===== 서로국어학원 실제 OMR 카드 기하 v2 (실제 마킹 카드에서 캘리브레이션) =====
+   앵커: 카드 좌우의 세로 타이밍바 2개.
+   좌표계: u=0(좌측바 중심)→1(우측바 중심), v=0(바 상단)→1(좌측바 하단).
+   우측바 하단은 이 프레임에서 v=0.9159 (좌측바보다 짧음: 아래에 사각마크 2개 존재).
+   행 v좌표 20개(각 열 공통) + 열별 ① u좌표 + 선택지 간격으로 45문항 격자 구성. */
+const SEORO_V2={
+  du:1/793, bubbleDpt:17, count:45, rbBottomV:0.9159,
+  rows:[0.0762,0.1235,0.1682,0.2116,0.2549,0.3167,0.3587,0.3995,0.4481,0.4862,
+        0.5519,0.5940,0.6413,0.6820,0.7293,0.7937,0.8384,0.8804,0.9251,0.9698],
+  colU1:[0.4555,0.6665,0.8663], gap:0.02371
+};
+/* ===== 서로 카드 기하 v3: 기준점(타이밍바·모서리마크) 없는 인쇄본용 =====
+   앵커: 답란 표 1(문항 1-20)의 좌측 상·하단 + 표 2(문항 21-40)의 우측 상·하단.
+   좌표계: u=0(표1 좌측 테두리)→1(표2 우측 테두리), v=0(표 상단)→1(표 하단).
+   표 3(41-45)은 이 프레임에서 u>1 위치. 실물 마킹 카드 사진에서 캘리브레이션. */
+const SEORO_V3={
+  du:1/1500, bubbleDpt:60,
+  rows:[0.0748,0.1187,0.1635,0.2083,0.2531,0.3109,0.3559,0.4006,0.4457,0.4900,
+        0.5495,0.5945,0.6393,0.6837,0.7287,0.7914,0.8359,0.8807,0.9249,0.9693],
+  colU1:[0.1931,0.7238,1.2190], gap:0.06015,
+  // 표3(41-45) 자체 bbox를 0~1로 본 로컬 좌표. 표3이 별도 탐지되면 이 좌표로 정밀 매핑한다.
+  t3:{ colU1:0.3913, gap:0.1301, rows:[0.2678,0.4230,0.5781,0.7375,0.8905], bubbleDpt:0.11 }
+};
+/* ===== 고3 전용 카드 기하 (2026-07 실카드 캘리브레이션, 225버블 링잉크 전수검증) =====
+   고1·고2 카드(1-20/21-40/41-45)와 달리 고3 카드는 1-20 / 21-34 / 35-45 3표 구성.
+   각 표를 자체 외곽 사각형으로 독립 매핑한다(표-로컬 정규화 좌표, 원근 잔차 최소화).
+   표 판별 특징: 표1(20행)이 가장 크고, 표2(14행) 높이는 표1의 ~0.73배,
+   표3(선택과목 박스 포함, 11행)은 표2와 비슷한 높이(~1.05배)로 우측 정렬. */
+const SEORO_H3={
+  T1:{q0:1, n:20, colU1:0.47051, gap:0.10592, bubbleD:0.0669,
+      rows:[0.0739,0.1186,0.1634,0.2098,0.2526,0.3076,0.3544,0.3985,0.4416,0.4887,
+            0.5497,0.5921,0.6380,0.6822,0.7264,0.7893,0.8348,0.8788,0.9230,0.9681]},
+  T2:{q0:21, n:14, colU1:0.46948, gap:0.10895, bubbleD:0.0686,
+      rows:[0.1042,0.1651,0.2239,0.2891,0.3498,0.4252,0.4899,0.5515,0.6122,0.6744,
+            0.7639,0.8225,0.8870,0.9485]},
+  T3:{q0:35, n:11, colU1:0.48188, gap:0.11161, bubbleD:0.0705,
+      rows:[0.3430,0.4133,0.4721,0.5311,0.5894,0.6460,0.7275,0.7863,0.8450,0.9036,0.9631]}
+};
+let scanTemplate="seoro"; // 'seoro'(타이밍바) | 'seoroT'(표 테두리 앵커) | 'seoroH3'(고3 3표) | 'app'(4모서리 마크) — analyze()가 자동으로 순차 시도
+let seoroT3=null;         // seoroT에서 표3(41-45)이 별도 탐지되면 그 사각형 좌표(TL/TR/BL/BR)를 저장
+let seoroH3Tabs=null;     // seoroH3에서 탐지된 세 표의 모서리 {T1:{TL,TR,BL,BR},T2:{...},T3:{...}}
+
+/* 스캔 대상 기하 반환 (템플릿별) */
+function scanGeometry(){
+  if(scanTemplate==="seoroH3"){
+    // 고3 카드: 표별 로컬 정규화 좌표 + tab 태그. computeScan이 표별 호모그래피로 매핑.
+    const items=[];
+    for(const tab of ["T1","T2","T3"]){
+      const G=SEORO_H3[tab];
+      for(let i=0;i<G.n;i++){
+        const v=G.rows[i];
+        items.push({q:G.q0+i, tab, du:G.gap, bd:1.0,
+          // bd(du=gap 스텝 단위 지름): 물리 링 지름은 ≈0.63이지만, r 계산의 0.55 축소와
+          // 코어 0.75 재축소가 곱해지면 샘플 코어가 2px대로 작아져 중심 보정이 링 잉크를 문
+          // 미표기 버블이 저신뢰 구제 규칙(1위≥2위×2.5)에 오걸림(기울임 ±2° 테스트로 확인).
+          // 1.0이면 코어 반경 ≈3.4px로 링 내부 마킹 영역에만 머물고(링 반경 ≈5.2px)
+          // 이웃 버블(중심 간 16.6px)·표선(행 피치 29px)에는 닿지 않는다.
+          bubbles:[0,1,2,3,4].map(c=>({c:c+1, u:G.colU1+c*G.gap, v}))});
+      }
+    }
+    items.sort((a,b)=>a.q-b.q);
+    return {items, du:SEORO_H3.T1.gap, bubbleD:SEORO_H3.T1.bubbleD};
+  }
+  if(scanTemplate==="seoro" || scanTemplate==="seoroT"){
+    const G = scanTemplate==="seoro" ? SEORO_V2 : SEORO_V3;
+    const items=[];
+    for(let q=1;q<=45;q++){
+      const ci=q<=20?0:(q<=40?1:2), ri=q<=20?q-1:(q<=40?q-21:q-41);
+      const v=G.rows[ri], u1=G.colU1[ci];
+      items.push({q, bubbles:[0,1,2,3,4].map(c=>({c:c+1, u:u1+c*G.gap, v}))});
+    }
+    return {items, du:G.du, bubbleD:G.bubbleDpt};
+  }
+  const L=layout(state.qCount);
+  return {items:L, du:1/(SHEET.fx1-SHEET.fx0), bubbleD:L.geo.bubbleD};
+}
+
+/* ---------- 정답표 그리드 ---------- */
+function renderKeyGrid(){
+  const g=document.getElementById("keyGrid"); g.innerHTML="";
+  state.key.forEach((k,i)=>{
+    const cell=document.createElement("div"); cell.className="qcell";
+    cell.innerHTML=`<div class="qno">${i+1}<span class="pt">·${k.points}점</span></div>
+      <div class="choices">${[1,2,3,4,5].map(n=>`<button class="ch ${k.ans===n?'on':''}" data-q="${i}" data-n="${n}">${n}</button>`).join("")}</div>
+      <div class="mini-meta"><button class="m" data-area="${i}">${k.area||"영역"}</button><button class="m" data-diff="${i}">${k.diff}</button><button class="m" data-pts="${i}" style="${k.points===3?'background:var(--amber);color:#fff':''}">${k.points}점</button></div>`;
+    g.appendChild(cell);
+  });
+  g.querySelectorAll(".ch").forEach(b=>b.onclick=()=>{const q=+b.dataset.q,n=+b.dataset.n;state.key[q].ans=state.key[q].ans===n?0:n;renderKeyGrid();});
+  g.querySelectorAll("[data-area]").forEach(b=>b.onclick=()=>{const i=+b.dataset.area,c=AREAS.indexOf(state.key[i].area);state.key[i].area=c>=AREAS.length-1?"":AREAS[c+1];renderKeyGrid();});
+  g.querySelectorAll("[data-diff]").forEach(b=>b.onclick=()=>{const i=+b.dataset.diff,c=DIFF.indexOf(state.key[i].diff);state.key[i].diff=DIFF[(c+1)%DIFF.length];renderKeyGrid();});
+  g.querySelectorAll("[data-pts]").forEach(b=>b.onclick=()=>{const i=+b.dataset.pts;state.key[i].points=state.key[i].points===3?2:3;renderKeyGrid();});
+}
+/* ---------- 답안 직접 입력 (키패드 + 문항 스트립) ---------- */
+let curQ=0;
+function renderAnsGrid(){
+  const g=document.getElementById("ansGrid"); g.innerHTML="";
+  state.ans.forEach((a,i)=>{
+    const row=document.createElement("div");
+    row.className="arow"+(a===0?" blank":"")+(i===curQ?" cur":"");
+    row.dataset.row=i;
+    row.innerHTML=`<div class="no">${i+1}</div><div class="bubs">${[1,2,3,4,5].map(n=>`<button class="bub ${a===n?'on':''}" data-q="${i}" data-n="${n}">${n}</button>`).join("")}</div>`;
+    row.onclick=e=>{
+      curQ=i;
+      const b=e.target.closest(".bub");
+      if(b){const n=+b.dataset.n; state.ans[i]=state.ans[i]===n?0:n;}
+      updateAnsUI(false);
+    };
+    g.appendChild(row);
+  });
+}
+function renderKeypad(){
+  document.getElementById("kpNum").textContent=curQ+1;
+  const k=state.key[curQ]||{};
+  document.getElementById("kpMeta").textContent=`${k.area?AREA_FULL[k.area]||k.area:"영역 미지정"} · ${k.points||2}점`;
+  document.querySelectorAll("#kpKeys [data-kp]").forEach(b=>{
+    const n=+b.dataset.kp;
+    b.classList.toggle("on",n>0&&state.ans[curQ]===n);
+  });
+}
+function updateProgress(){
+  const filled=state.ans.filter(a=>a>0).length,total=state.qCount;
+  const lb=document.getElementById("progLabel"),fl=document.getElementById("progFill"),jp=document.getElementById("jumpBlank");
+  lb.textContent=`${filled} / ${total} 문항 표기`; lb.classList.toggle("done",filled===total);
+  fl.style.width=(filled/total*100)+"%"; fl.classList.toggle("done",filled===total);
+  jp.hidden=filled===total;
+  document.getElementById("gradeBtn").textContent=filled===total?"채점하기 ✓":`채점하기 (${filled}/${total})`;
+}
+function updateAnsUI(scroll=true){
+  renderAnsGrid(); renderKeypad(); updateProgress();
+  if(scroll){const el=document.querySelector(`.arow[data-row="${curQ}"]`); el&&el.scrollIntoView({block:"nearest",behavior:"smooth"});}
+}
+document.getElementById("kpKeys").onclick=e=>{
+  const b=e.target.closest("[data-kp]"); if(!b)return;
+  const n=+b.dataset.kp;
+  if(n===0){state.ans[curQ]=0;}
+  else{state.ans[curQ]=n; if(curQ<state.qCount-1)curQ++;}
+  updateAnsUI();
+};
+document.getElementById("kpPrev").onclick=()=>{if(curQ>0){curQ--;updateAnsUI();}};
+document.getElementById("kpNext").onclick=()=>{if(curQ<state.qCount-1){curQ++;updateAnsUI();}};
+document.getElementById("jumpBlank").onclick=()=>{
+  const i=state.ans.findIndex(a=>a===0);
+  if(i>=0){curQ=i;updateAnsUI();}
+};
+
+/* ---------- OMR 답안지 렌더 (인쇄) ---------- */
+function renderSheet(){
+  const s=document.getElementById("omrSheet"); s.innerHTML="";
+  const mm=x=>x+"mm";
+  const add=(cls,styles,html="")=>{const d=document.createElement("div");d.className=cls;Object.assign(d.style,styles);d.innerHTML=html;s.appendChild(d);return d;};
+  // 등록마크 4개
+  const half=SHEET.fidSize/2;
+  [[SHEET.fx0,SHEET.fy0],[SHEET.fx1,SHEET.fy0],[SHEET.fx0,SHEET.fy1],[SHEET.fx1,SHEET.fy1]].forEach(([x,y])=>{
+    add("fid",{left:mm(x-half),top:mm(y-half),width:mm(SHEET.fidSize),height:mm(SHEET.fidSize)});
+  });
+  // 헤더
+  add("s-brand",{},"서로국어논술 SEORO");
+  add("s-title",{},"국어 모의고사 답안지");
+  const ex=document.getElementById("examName").value.trim()||"국어 모의고사";
+  add("s-exam",{},ex);
+  add("s-line",{left:mm(120),top:mm(24),width:mm(60)},"이름 :");
+  add("s-line",{left:mm(120),top:mm(32),width:mm(60)},"반 / 번호 :");
+  // 안내
+  add("s-note",{},"작성법 &nbsp;·&nbsp; ① 검정색 펜/컴퓨터용 사인펜으로 원 안을 꽉 채워 칠하세요. &nbsp; ② 한 문항에 하나만 표기. 수정 시 완전히 지우세요. &nbsp; ③ 네 모서리 검은 마크가 잘리거나 가려지지 않게 하세요.");
+
+  const L=layout(state.qCount);
+  const geo=L.geo;
+  const bD=geo.bubbleD;
+  // 열 상단 선택지 라벨 (①~⑤) — 줄간격에 맞춰 위치·크기 조정
+  const cols=geo.cols;
+  const labV=SHEET.rowsTop - geo.rowH*0.45;              // 첫 행 위쪽에 배치
+  for(let k=0;k<cols;k++){
+    const first=L.find(x=>x.col===k);
+    if(!first) continue;
+    const circ=["①","②","③","④","⑤"];
+    first.bubbles.forEach((b,ci)=>{
+      const [mx,my]=norm2mm(b.u, labV);
+      add("chlab",{left:mm(mx),top:mm(my),fontSize:mm(geo.labelFont)},circ[ci]);
+    });
+  }
+  // 문항 번호 + 버블
+  L.forEach(item=>{
+    const [nx,ny]=norm2mm(item.numU,item.v);
+    add("qnum",{left:mm(nx),top:mm(ny),fontSize:mm(geo.qnumFont)}, String(item.q));
+    item.bubbles.forEach(b=>{
+      const [bx,by]=norm2mm(b.u,b.v);
+      add("bub",{left:mm(bx),top:mm(by),width:mm(bD),height:mm(bD),fontSize:mm(geo.digitFont)}, String(b.c));
+    });
+  });
+  fitSheet();
+}
+function fitSheet(){
+  const wrap=document.getElementById("sheetPreview");
+  const scale=document.getElementById("sheetScale");
+  const pxW=210*3.7795275591; // mm→px @96dpi
+  const avail=wrap.clientWidth-28;
+  const s=Math.min(1, avail/pxW);
+  scale.style.transform=`scale(${s})`;
+  scale.style.width=pxW+"px";
+  wrap.style.height=(297*3.7795275591*s+28)+"px";
+}
+window.addEventListener("resize",()=>{ if(document.getElementById("s-print").classList.contains("on")) fitSheet(); });
+
+/* =====================================================================
+   컴퓨터비전 파이프라인 (순수 JS)
+   ===================================================================== */
+const MOCK=new URLSearchParams(location.search).has("mock");
+let FILL_THRESH=0.34;   // 절대 채움 임계 (감도 슬라이더로 조정)
+const REL_MARGIN=0.10;  // 1·2위 농도차 최소
+let lastScan=null;      // {gray,w,h,H,layout,rgbaCanvas}
+
+/* 이미지 로더: HEIC 등 디코딩 실패에 대비한 3단 폴백
+   ① createImageBitmap(코덱 지원 폭이 가장 넓음, EXIF 방향 반영)
+   ② objectURL + Image  ③ FileReader dataURL + Image */
+const LOAD_FAIL_MSG="이 사진 형식(HEIC 등)을 브라우저가 열지 못했습니다. "
+  +"아이폰은 [설정 > 카메라 > 포맷 > 높은 호환성]으로 바꾸거나, "
+  +"사진을 카카오톡·메시지로 한 번 보낸 뒤 그 사진(JPEG 변환본)을 올리면 됩니다.";
+function imgFromUrl(url){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>res(img);
+    img.onerror=()=>rej(new Error("decode fail"));
+    img.src=url;
+  });
+}
+async function loadImage(file){
+  // ① createImageBitmap
+  if(typeof createImageBitmap==="function"){
+    try{ return await createImageBitmap(file,{imageOrientation:"from-image"}); }
+    catch(e){
+      try{ return await createImageBitmap(file); }catch(e2){}
+    }
+  }
+  // ② objectURL
+  const url=URL.createObjectURL(file);
+  try{ const im=await imgFromUrl(url); return im; }
+  catch(e){ URL.revokeObjectURL(url); }
+  // ③ FileReader dataURL
+  try{
+    const dataUrl=await new Promise((res,rej)=>{
+      const r=new FileReader();
+      r.onload=()=>res(r.result); r.onerror=()=>rej(new Error("read fail"));
+      r.readAsDataURL(file);
+    });
+    return await imgFromUrl(dataUrl);
+  }catch(e){}
+  throw new Error(LOAD_FAIL_MSG);
+}
+function toGray(img,maxLong=1100){
+  const scale=Math.min(1,maxLong/Math.max(img.width,img.height));
+  const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+  const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+  const ctx=cv.getContext("2d"); ctx.drawImage(img,0,0,w,h);
+  const d=ctx.getImageData(0,0,w,h).data;
+  const gray=new Float32Array(w*h);
+  for(let i=0,p=0;i<w*h;i++,p+=4) gray[i]=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2];
+  return {gray,w,h,canvas:cv};
+}
+/* Otsu 임계 (0..255) */
+function otsu(hist,total){
+  let sum=0; for(let t=0;t<256;t++) sum+=t*hist[t];
+  let sumB=0,wB=0,max=0,thr=127;
+  for(let t=0;t<256;t++){
+    wB+=hist[t]; if(!wB) continue;
+    const wF=total-wB; if(!wF) break;
+    sumB+=t*hist[t];
+    const mB=sumB/wB, mF=(sum-sumB)/wF;
+    const between=wB*wF*(mB-mF)*(mB-mF);
+    if(between>max){max=between;thr=t;}
+  }
+  return thr;
+}
+/* 한 코너 영역에서 가장 큰 어두운 덩어리의 중심 → 등록마크 */
+function findFiducial(gray,w,h,x0,y0,x1,y1){
+  const rw=x1-x0, rh=y1-y0;
+  const hist=new Uint32Array(256);
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)hist[gray[y*w+x]|0]++;
+  const thr=Math.max(55,Math.min(otsu(hist,rw*rh), 150)); // 마크는 확실히 어둡다
+  // 이진화(어두우면 1) + 라벨링(BFS)로 최대 성분
+  const bin=new Uint8Array(rw*rh);
+  for(let y=0;y<rh;y++)for(let x=0;x<rw;x++) bin[y*rw+x]=gray[(y0+y)*w+(x0+x)]<thr?1:0;
+  const lab=new Int32Array(rw*rh).fill(0);
+  let best={area:0,sx:0,sy:0};
+  const stack=[];
+  for(let i=0;i<rw*rh;i++){
+    if(bin[i]!==1||lab[i]) continue;
+    let area=0,sx=0,sy=0,head=0,minx=1e9,maxx=-1,miny=1e9,maxy=-1; stack.length=0; stack.push(i); lab[i]=1;
+    while(head<stack.length){
+      const p=stack[head++]; const px=p%rw, py=(p/rw)|0;
+      area++; sx+=px; sy+=py;
+      if(px<minx)minx=px; if(px>maxx)maxx=px; if(py<miny)miny=py; if(py>maxy)maxy=py;
+      const nb=[p-1,p+1,p-rw,p+rw];
+      if(px>0&&bin[p-1]&&!lab[p-1]){lab[p-1]=1;stack.push(p-1);}
+      if(px<rw-1&&bin[p+1]&&!lab[p+1]){lab[p+1]=1;stack.push(p+1);}
+      if(py>0&&bin[p-rw]&&!lab[p-rw]){lab[p-rw]=1;stack.push(p-rw);}
+      if(py<rh-1&&bin[p+rw]&&!lab[p+rw]){lab[p+rw]=1;stack.push(p+rw);}
+    }
+    if(area>best.area) best={area,sx,sy,minx,maxx,miny,maxy};
+  }
+  if(best.area < (rw*rh)*0.001) return null; // 너무 작으면 실패
+  // 형태 검증: 등록마크는 "꽉 찬 정사각형"이다. 로고·글자·배경 조각 오탐을 막는다.
+  if(best.minx!==undefined){
+    const bw=best.maxx-best.minx+1, bhh=best.maxy-best.miny+1;
+    const ar=bw/Math.max(1,bhh);
+    if(ar<0.45 || ar>2.2) return null;                       // 정사각형에서 크게 벗어남
+    if(best.area < bw*bhh*0.55) return null;                 // 속이 비었거나 글자 모양
+    const side=Math.max(bw,bhh), m=Math.min(w,h);
+    if(side < m*0.012 || side > m*0.12) return null;          // 마크 크기 범위 밖
+  }
+  return [x0+best.sx/best.area, y0+best.sy/best.area];
+}
+/* 탭 지점 주변(이미지 짧은 변의 6%) 로컬 영역에서 모서리 마크를 재탐지.
+   findFiducial과 동일한 로직(국소 임계값+최대 덩어리)을 좁은 범위에 적용해
+   탭이 마크 중심에서 살짝 벗어나도 정확한 마크 중심으로 스냅한다. */
+function detectCornerAt(gray,w,h,tapX,tapY){
+  const rad=Math.max(20, Math.round(Math.min(w,h)*0.06));
+  const x0=Math.max(0,tapX-rad), x1=Math.min(w,tapX+rad);
+  const y0=Math.max(0,tapY-rad), y1=Math.min(h,tapY+rad);
+  return findFiducial(gray,w,h,x0,y0,x1,y1);
+}
+/* 적응형 이진화(Bradley): 국소 평균 대비 어두우면 1.
+   전역 임계와 달리 그림자·조명 불균일에 강하다. */
+function adaptiveBin(gray,w,h){
+  const ii=new Float64Array((w+1)*(h+1));
+  for(let y=0;y<h;y++){
+    let rowSum=0;
+    for(let x=0;x<w;x++){
+      rowSum+=gray[y*w+x];
+      ii[(y+1)*(w+1)+(x+1)]=ii[y*(w+1)+(x+1)]+rowSum;
+    }
+  }
+  const win=Math.max(15,(Math.min(w,h)/12)|0), half=win>>1, T=0.80;
+  const bin=new Uint8Array(w*h);
+  for(let y=0;y<h;y++){
+    const y0=Math.max(0,y-half), y1=Math.min(h-1,y+half);
+    for(let x=0;x<w;x++){
+      const x0=Math.max(0,x-half), x1=Math.min(w-1,x+half);
+      const area=(x1-x0+1)*(y1-y0+1);
+      const s=ii[(y1+1)*(w+1)+(x1+1)]-ii[y0*(w+1)+(x1+1)]-ii[(y1+1)*(w+1)+x0]+ii[y0*(w+1)+x0];
+      bin[y*w+x]=(gray[y*w+x]*area < s*T)?1:0;
+    }
+  }
+  return bin;
+}
+/* 좌우 세로 타이밍바 탐지 (서로 카드 전용 앵커)
+   조건: 높이가 이미지의 45% 이상, 세로/가로 비 6 이상, 폭 8% 이하.
+   기울어진 촬영에 대응해 상·하단 5% 픽셀 평균으로 끝점을 구한다. */
+function collectBarCandidates(gray,w,h){
+  const bin=adaptiveBin(gray,w,h);
+  const lab=new Int32Array(w*h); const stack=[]; const cands=[];
+  for(let i=0;i<w*h;i++){
+    if(bin[i]!==1||lab[i])continue;
+    stack.length=0; stack.push(i); lab[i]=1;
+    let head=0,minx=1e9,maxx=-1,miny=1e9,maxy=-1; const pts=[];
+    while(head<stack.length){
+      const p=stack[head++]; const px=p%w, py=(p/w)|0;
+      if(px<minx)minx=px; if(px>maxx)maxx=px; if(py<miny)miny=py; if(py>maxy)maxy=py;
+      pts.push(p);
+      if(px>0&&bin[p-1]&&!lab[p-1]){lab[p-1]=1;stack.push(p-1);}
+      if(px<w-1&&bin[p+1]&&!lab[p+1]){lab[p+1]=1;stack.push(p+1);}
+      if(py>0&&bin[p-w]&&!lab[p-w]){lab[p-w]=1;stack.push(p-w);}
+      if(py<h-1&&bin[p+w]&&!lab[p+w]){lab[p+w]=1;stack.push(p+w);}
+    }
+    const bh=maxy-miny+1, bw=maxx-minx+1;
+    if(bh < h*0.45) continue;
+    if(bh/Math.max(1,bw) < 6) continue;
+    if(bw > w*0.08) continue;
+    const span=maxy-miny, tipBand=Math.max(2,span*0.01);
+    let tx=0,tn=0,bx=0,bn=0,cx=0;
+    for(const p of pts){
+      const px=p%w, py=(p/w)|0; cx+=px;
+      if(py<=miny+tipBand){tx+=px;tn++;}
+      if(py>=maxy-tipBand){bx+=px;bn++;}
+    }
+    cands.push({cx:cx/pts.length, top:[tx/tn,miny], bot:[bx/bn,maxy], len:span, wd:bw});
+  }
+  return cands;
+}
+function detectBars(gray,w,h){
+  const cands=collectBarCandidates(gray,w,h);
+  if(cands.length<2) return null;
+  cands.sort((a,b)=>a.cx-b.cx);
+  const L=cands[0], R=cands[cands.length-1];
+  if(R.cx-L.cx < w*0.3) return null;
+  return {L,R};
+}
+/* 답란 표(문항 1-20, 21-40) 두 개의 외곽 사각형을 앵커로 탐지.
+   조건: 세로로 긴 사다리형 성분(높이 이미지의 50%+, 세로/가로비 3.5~6.5, 폭 8~25%).
+   성명 그리드(비율 ~2.6)·타이밍바(비율 40+)는 자연히 배제된다.
+   두 표의 네 바깥 모서리(표1 좌상·좌하, 표2 우상·우하)를 반환. */
+function detectTables(gray,w,h){
+  const bin=adaptiveBin(gray,w,h);
+  const lab=new Int32Array(w*h); const stack=[]; const cands=[];
+  for(let i=0;i<w*h;i++){
+    if(bin[i]!==1||lab[i])continue;
+    stack.length=0; stack.push(i); lab[i]=1;
+    let head=0,minx=1e9,maxx=-1,miny=1e9,maxy=-1; const pts=[];
+    while(head<stack.length){
+      const p=stack[head++]; const px=p%w, py=(p/w)|0;
+      if(px<minx)minx=px; if(px>maxx)maxx=px; if(py<miny)miny=py; if(py>maxy)maxy=py;
+      pts.push(p);
+      if(px>0&&bin[p-1]&&!lab[p-1]){lab[p-1]=1;stack.push(p-1);}
+      if(px<w-1&&bin[p+1]&&!lab[p+1]){lab[p+1]=1;stack.push(p+1);}
+      if(py>0&&bin[p-w]&&!lab[p-w]){lab[p-w]=1;stack.push(p-w);}
+      if(py<h-1&&bin[p+w]&&!lab[p+w]){lab[p+w]=1;stack.push(p+w);}
+    }
+    const bh=maxy-miny+1, bw=maxx-minx+1, ar=bh/Math.max(1,bw);
+    // 큰 표(표1·표2, 20문항): 높이 50%+, 세로/가로비 3.5~6.5, 폭 6~28%
+    const isBig = (bh>=h*0.5 && ar>=3.5 && ar<=6.5 && bw>=w*0.06 && bw<=w*0.28);
+    // 짧은 표(표3, 5문항): 높이 12~35%, 세로/가로비 0.8~2.2, 폭 6~28%
+    const isSmall = (bh>=h*0.12 && bh<h*0.4 && ar>=0.8 && ar<=2.2 && bw>=w*0.06 && bw<=w*0.28);
+    if(!isBig && !isSmall) continue;
+    // 네 극점(모서리): x+y 최소=TL, x+y 최대=BR, x-y 최대=TR, x-y 최소=BL
+    let sMin=1e18,sMax=-1e18,dMin=1e18,dMax=-1e18, TL,BR,TR,BL;
+    for(const p of pts){
+      const px=p%w, py=(p/w)|0, s=px+py, d=px-py;
+      if(s<sMin){sMin=s;TL=[px,py];}
+      if(s>sMax){sMax=s;BR=[px,py];}
+      if(d>dMax){dMax=d;TR=[px,py];}
+      if(d<dMin){dMin=d;BL=[px,py];}
+    }
+    cands.push({cx:(minx+maxx)/2, cy:(miny+maxy)/2, bh, bw, ar, big:isBig, TL,TR,BL,BR});
+  }
+  const bigs=cands.filter(c=>c.big);
+  if(bigs.length<2) return null;
+  // 큰 표 중 높이가 비슷한(±8%) 쌍, 좌우 인접, 여러 쌍이면 가장 오른쪽
+  let best=null;
+  for(let i=0;i<bigs.length;i++)for(let j=0;j<bigs.length;j++){
+    if(i===j) continue;
+    const A=bigs[i], B=bigs[j];
+    if(A.cx>=B.cx) continue;
+    if(Math.abs(A.bh-B.bh) > Math.max(A.bh,B.bh)*0.08) continue;
+    const gap=B.TL[0]-A.TR[0];
+    if(gap < 0 || gap > w*0.3) continue;
+    if(!best || (A.cx+B.cx) > (best[0].cx+best[1].cx)) best=[A,B];
+  }
+  if(!best) return null;
+  // 표3: 짧은 표 중 표2 오른쪽에 있고 세로 위치가 비슷한 것(표들과 상단 정렬)
+  const T2=best[1];
+  let T3=null;
+  const smalls=cands.filter(c=>!c.big && c.cx>T2.cx);
+  for(const s of smalls){
+    if(Math.abs(s.TL[1]-T2.TL[1]) > T2.bh*0.15) continue;   // 상단이 표2와 대략 같은 높이
+    if(!T3 || s.cx<T3.cx) T3=s;                              // 표2에 가장 가까운 것
+  }
+  return {T1:best[0], T2, T3};
+}
+/* 고3 카드 3표 탐지: 세로로 긴 표 후보 중 [표1(최대), 표2(≈0.73×표1), 표3(≈표2)]
+   높이 비율·상단 정렬·좌→우 순서를 만족하는 삼중조를 찾는다.
+   고1·고2 카드는 표1·표2 높이가 같아(비율 1.0) 이 조건을 만족하지 못하고,
+   반대로 고3 카드는 기존 detectTables의 ±8% 동일높이 조건을 만족하지 못해
+   두 템플릿이 상호 배타적으로 매칭된다(오인식 방지). */
+function detectTablesH3(gray,w,h){
+  const bin=adaptiveBin(gray,w,h);
+  const lab=new Int32Array(w*h); const stack=[]; const cands=[];
+  for(let i=0;i<w*h;i++){
+    if(bin[i]!==1||lab[i])continue;
+    stack.length=0; stack.push(i); lab[i]=1;
+    let head=0,minx=1e9,maxx=-1,miny=1e9,maxy=-1; const pts=[];
+    while(head<stack.length){
+      const p=stack[head++]; const px=p%w, py=(p/w)|0;
+      if(px<minx)minx=px; if(px>maxx)maxx=px; if(py<miny)miny=py; if(py>maxy)maxy=py;
+      pts.push(p);
+      if(px>0&&bin[p-1]&&!lab[p-1]){lab[p-1]=1;stack.push(p-1);}
+      if(px<w-1&&bin[p+1]&&!lab[p+1]){lab[p+1]=1;stack.push(p+1);}
+      if(py>0&&bin[p-w]&&!lab[p-w]){lab[p-w]=1;stack.push(p-w);}
+      if(py<h-1&&bin[p+w]&&!lab[p+w]){lab[p+w]=1;stack.push(p+w);}
+    }
+    const bh=maxy-miny+1, bw=maxx-minx+1, ar=bh/Math.max(1,bw);
+    // 표 후보: 높이 이미지의 35%+, 세로/가로비 2.5~7, 폭 6~28%
+    if(!(bh>=h*0.35 && ar>=2.5 && ar<=7 && bw>=w*0.06 && bw<=w*0.28)) continue;
+    let sMin=1e18,sMax=-1e18,dMin=1e18,dMax=-1e18, TL,BR,TR,BL;
+    for(const p of pts){
+      const px=p%w, py=(p/w)|0, s=px+py, d=px-py;
+      if(s<sMin){sMin=s;TL=[px,py];}
+      if(s>sMax){sMax=s;BR=[px,py];}
+      if(d>dMax){dMax=d;TR=[px,py];}
+      if(d<dMin){dMin=d;BL=[px,py];}
+    }
+    cands.push({cx:(minx+maxx)/2, cy:(miny+maxy)/2, bh, bw, TL,TR,BL,BR});
+  }
+  if(cands.length<3) return null;
+  cands.sort((a,b)=>a.cx-b.cx);
+  let best=null;
+  for(let i=0;i<cands.length;i++)for(let j=0;j<cands.length;j++)for(let k=0;k<cands.length;k++){
+    if(i===j||j===k||i===k) continue;
+    const A=cands[i],B=cands[j],C=cands[k];
+    if(!(A.cx<B.cx&&B.cx<C.cx)) continue;                       // 좌→우
+    const rBA=B.bh/A.bh, rCB=C.bh/B.bh;
+    if(rBA<0.62||rBA>0.85) continue;                            // 표2/표1 높이비
+    if(rCB<0.88||rCB>1.20) continue;                            // 표3/표2 높이비
+    if(Math.abs(A.TL[1]-B.TL[1])>A.bh*0.08) continue;           // 상단 정렬
+    if(Math.abs(B.TL[1]-C.TL[1])>A.bh*0.08) continue;
+    // 세 표는 폭이 거의 같다(문번+답란 구조 동일). 성명박스(폭 1.3배+)를 배제하는 핵심 조건.
+    const bws=[A.bw,B.bw,C.bw];
+    if(Math.max(...bws)>Math.min(...bws)*1.25) continue;
+    if(B.TL[0]-A.TR[0]<0 || B.TL[0]-A.TR[0]>w*0.25) continue;   // 인접
+    if(C.TL[0]-B.TR[0]<0 || C.TL[0]-B.TR[0]>w*0.25) continue;
+    const width=C.BR[0]-A.TL[0];
+    if(!best || width>best.width) best={T1:A,T2:B,T3:C,width};
+  }
+  return best;
+}
+/* 앵커 탐지: 정규화 src 좌표와 이미지 dst 좌표 쌍을 반환 */
+function detectFiducials(gray,w,h){
+  if(scanTemplate==="seoroH3"){
+    const t=detectTablesH3(gray,w,h);
+    if(!t) return null;
+    seoroH3Tabs={T1:{TL:t.T1.TL,TR:t.T1.TR,BL:t.T1.BL,BR:t.T1.BR},
+                 T2:{TL:t.T2.TL,TR:t.T2.TR,BL:t.T2.BL,BR:t.T2.BR},
+                 T3:{TL:t.T3.TL,TR:t.T3.TR,BL:t.T3.BL,BR:t.T3.BR}};
+    // 메인 프레임(quadIsSane·시각화용)은 표1 좌측 ~ 표3 우측의 넓은 사각형
+    return {src:[[0,0],[1,0],[0,1],[1,1]],
+            dst:[t.T1.TL, t.T3.TR, t.T1.BL, [t.T3.BR[0], t.T1.BL[1]]]};
+  }
+  if(scanTemplate==="seoroT"){
+    const t=detectTables(gray,w,h);
+    if(!t) return null;
+    // 표3(41-45)이 탐지되면 그 자체 사각형으로 독립 매핑(프레임 밖 외삽보다 정확).
+    seoroT3 = t.T3 ? {TL:t.T3.TL, TR:t.T3.TR, BL:t.T3.BL, BR:t.T3.BR} : null;
+    return {src:[[0,0],[1,0],[0,1],[1,1]],
+            dst:[t.T1.TL, t.T2.TR, t.T1.BL, t.T2.BR]};
+  }
+  if(scanTemplate==="seoro"){
+    const bars=detectBars(gray,w,h);
+    if(!bars) return null;
+    const {L,R}=bars;
+    return {src:[[0,0],[1,0],[0,1],[1,SEORO_V2.rbBottomV]],
+            dst:[L.top,R.top,L.bot,R.bot]};
+  }
+  const mx=0.46, my=0.46;
+  const TL=findFiducial(gray,w,h,0,0,(w*mx)|0,(h*my)|0);
+  const TR=findFiducial(gray,w,h,(w*(1-mx))|0,0,w,(h*my)|0);
+  const BL=findFiducial(gray,w,h,0,(h*(1-my))|0,(w*mx)|0,h);
+  const BR=findFiducial(gray,w,h,(w*(1-mx))|0,(h*(1-my))|0,w,h);
+  if(!TL||!TR||!BL||!BR) return null;
+  return {src:[[0,0],[1,0],[0,1],[1,1]], dst:[TL,TR,BL,BR]};
+}
+/* 8x8 선형계 해법 (부분 피벗 가우스 소거) */
+function solve8(A,b){
+  const n=8;
+  for(let col=0;col<n;col++){
+    let piv=col; for(let r=col+1;r<n;r++) if(Math.abs(A[r][col])>Math.abs(A[piv][col])) piv=r;
+    [A[col],A[piv]]=[A[piv],A[col]]; [b[col],b[piv]]=[b[piv],b[col]];
+    const d=A[col][col]; if(Math.abs(d)<1e-9) return null;
+    for(let r=0;r<n;r++){ if(r===col) continue; const f=A[r][col]/d;
+      for(let c=col;c<n;c++) A[r][c]-=f*A[col][c]; b[r]-=f*b[col]; }
+  }
+  const x=new Array(n); for(let i=0;i<n;i++) x[i]=b[i]/A[i][i]; return x;
+}
+/* 정규화(src)→이미지(dst) 호모그래피. src,dst: 4점 배열 */
+function homography(src,dst){
+  const A=[],b=[];
+  for(let i=0;i<4;i++){
+    const [x,y]=src[i], [X,Y]=dst[i];
+    A.push([x,y,1,0,0,0,-x*X,-y*X]); b.push(X);
+    A.push([0,0,0,x,y,1,-x*Y,-y*Y]); b.push(Y);
+  }
+  const h=solve8(A,b); if(!h) return null;
+  return [[h[0],h[1],h[2]],[h[3],h[4],h[5]],[h[6],h[7],1]];
+}
+function applyH(H,u,v){
+  const x=H[0][0]*u+H[0][1]*v+H[0][2];
+  const y=H[1][0]*u+H[1][1]*v+H[1][2];
+  const w=H[2][0]*u+H[2][1]*v+H[2][2];
+  return [x/w,y/w];
+}
+/* 역 호모그래피: 이미지 좌표(dst) → 정규화 좌표(src). src·dst를 맞바꿔 계산. */
+function homographyInv(src,dst){ return homography(dst,src); }
+/* 버블 중심 원판 내부에서 "검게 채워진 픽셀의 비율"을 구한다.
+   전역/원판 평균 밝기(sampleDarkness)는 사진의 그림자·조명 불균일에 취약하다.
+   대신 국소 적응형 이진화(bin, adaptiveBin 결과)로 각 픽셀을 흑/백으로 먼저 확정한 뒤
+   그 비율을 세므로, 한쪽이 어둡게 찍힌 사진에서도 "이 원이 실제로 칠해졌는가"를
+   주변 종이 배경 대비로 판단할 수 있어 더 안정적이다. */
+function sampleFillRatio(bin,w,h,cx,cy,r){
+  let filled=0,cnt=0; const r2=r*r;
+  const x0=Math.max(0,(cx-r)|0),x1=Math.min(w-1,(cx+r)|0),y0=Math.max(0,(cy-r)|0),y1=Math.min(h-1,(cy+r)|0);
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    const dx=x-cx,dy=y-cy; if(dx*dx+dy*dy<=r2){ cnt++; if(bin[y*w+x]) filled++; }
+  }
+  if(!cnt) return 0;
+  return filled/cnt;
+}
+/* 버블 중심에서 원판 평균 농도(0..1, 1=검정). 하위 호환/보조용으로 유지. */
+function sampleDarkness(gray,w,h,cx,cy,r){
+  let sum=0,cnt=0; const r2=r*r;
+  const x0=Math.max(0,(cx-r)|0),x1=Math.min(w-1,(cx+r)|0),y0=Math.max(0,(cy-r)|0),y1=Math.min(h-1,(cy+r)|0);
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    const dx=x-cx,dy=y-cy; if(dx*dx+dy*dy<=r2){ sum+=gray[y*w+x]; cnt++; }
+  }
+  if(!cnt) return 0;
+  return 1-(sum/cnt)/255;
+}
+/* 회전 유틸: 캔버스를 90도 단위로 회전한 새 캔버스와 gray 반환 */
+function rotateGrayCanvas(base,deg){
+  const {canvas}=base;
+  const cv=document.createElement("canvas");
+  if(deg===90||deg===270){ cv.width=canvas.height; cv.height=canvas.width; }
+  else { cv.width=canvas.width; cv.height=canvas.height; }
+  const ctx=cv.getContext("2d");
+  ctx.translate(cv.width/2,cv.height/2); ctx.rotate(deg*Math.PI/180);
+  ctx.drawImage(canvas,-canvas.width/2,-canvas.height/2);
+  const w=cv.width,h=cv.height,d=ctx.getImageData(0,0,w,h).data;
+  const gray=new Float32Array(w*h);
+  for(let i=0,p=0;i<w*h;i++,p+=4) gray[i]=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2];
+  return {gray,w,h,canvas:cv};
+}
+/* 공통 판독: 앵커(src/dst) → 호모그래피 → 격자 흑백 채움 비율 샘플 → 답 결정
+   gray 전체에 대해 적응형 이진화(bin)를 한 번만 계산해 재사용한다. */
+/* =====================================================================
+   [개선] 자석형 무게중심 좌표 자동 보정 (Snap-to-Bubble)
+   호모그래피로 계산된 버블 중심(cx,cy)은 카드 인쇄 오차·원근 왜곡 잔차 때문에
+   실제 인쇄된 원 중심에서 살짝 어긋날 수 있다. 이 함수는 그 주변에서 실제로
+   어두운(잉크가 있는) 픽셀들의 무게중심을 계산해 좌표를 살짝 끌어당겨 보정한다.
+   ===================================================================== */
+function calibrateBubbleCenter(gray, w, h, cx, cy, r) {
+  // 버블 반지름의 1.2배만큼 주변 탐색 영역 지정
+  const searchR = Math.round(r * 1.2);
+  let minG = 255, maxG = 0;
+
+  // 1. 국소 범위 내에서 가장 어두운 픽셀(minG)과 가장 밝은 픽셀(maxG) 파악
+  for (let dy = -searchR; dy <= searchR; dy++) {
+    for (let dx = -searchR; dx <= searchR; dx++) {
+      const px = Math.round(cx + dx);
+      const py = Math.round(cy + dy);
+      if (px >= 0 && px < w && py >= 0 && py < h) {
+        const g = gray[py * w + px];
+        if (g < minG) minG = g;
+        if (g > maxG) maxG = g;
+      }
+    }
+  }
+
+  // 국소 영역의 명암비가 너무 낮으면(그냥 흰 종이 배경인 경우) 보정 없이 원본 좌표 유지
+  if (maxG - minG < 30) return { x: cx, y: cy };
+
+  // 하위 40% 이하의 어두운 영역(버블 테두리 선 또는 마킹 자국)을 임계값으로 지정
+  const thresh = minG + (maxG - minG) * 0.4;
+  let sumX = 0, sumY = 0, sumW = 0;
+
+  for (let dy = -searchR; dy <= searchR; dy++) {
+    for (let dx = -searchR; dx <= searchR; dx++) {
+      const px = Math.round(cx + dx);
+      const py = Math.round(cy + dy);
+      if (px >= 0 && px < w && py >= 0 && py < h) {
+        const g = gray[py * w + px];
+        if (g < thresh) {
+          // 픽셀이 어두울수록(g 값이 작을수록) 무게중심에 미치는 가중치(weight)를 강하게 부여
+          const weight = thresh - g;
+          sumX += px * weight;
+          sumY += py * weight;
+          sumW += weight;
+        }
+      }
+    }
+  }
+
+  if (sumW > 0) {
+    let calX = sumX / sumW;
+    let calY = sumY / sumW;
+
+    // 이웃한 버블이나 다른 문자선으로 중심이 날아가지 않도록 최대 보정 거리를 제한 (안전장치)
+    const maxDrift = r * 0.75;
+    const dx = calX - cx;
+    const dy = calY - cy;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > maxDrift) {
+      calX = cx + (dx / dist) * maxDrift;
+      calY = cy + (dy / dist) * maxDrift;
+    }
+    return { x: calX, y: calY };
+  }
+
+  return { x: cx, y: cy };
+}
+function computeScan(gray,w,h,canvas,srcPts,dstPts){
+  const H=homography(srcPts,dstPts);
+  if(!H) throw new Error("답안지 정렬(원근 보정)에 실패했습니다. 네 점을 다시 지정하거나 정면에서 촬영해 주세요.");
+  const bin=adaptiveBin(gray,w,h);
+  const {items,du,bubbleD}=scanGeometry();
+
+  // ── 표3(41-45) 전용 매핑: 표3 자체 사각형 4점으로 호모그래피 구성 ──
+  // 표3은 정사각형에 가까워(4모서리 탐지가 회전에 민감) 방향이 뒤집힐 수 있다.
+  // 4가지 방향(정상/좌우반전/상하반전/180°)을 모두 시도해, 답란 구조상 자연스러운
+  // 방향(①②③ 왼쪽 열은 대체로 비고 마킹은 특정 열에 몰림)을 점수화해 최적 방향을 고른다.
+  let t3map=null;
+  if(scanTemplate==="seoroT" && seoroT3){
+    const G=SEORO_V3.t3;
+    const corners=[seoroT3.TL,seoroT3.TR,seoroT3.BL,seoroT3.BR];
+    // 4방향의 dst 배열 (src는 항상 [[0,0],[1,0],[0,1],[1,1]])
+    const orients=[
+      [corners[0],corners[1],corners[2],corners[3]], // 정상
+      [corners[1],corners[0],corners[3],corners[2]], // 좌우반전
+      [corners[2],corners[3],corners[0],corners[1]], // 상하반전
+      [corners[3],corners[2],corners[1],corners[0]]  // 180°
+    ];
+    const sampleAt=(H3,lu,lv)=>{
+      const [cx0,cy0]=applyH(H3,lu,lv);
+      const [cx2,cy2]=applyH(H3,lu+G.gap,lv);
+      const pxU=Math.hypot(cx2-cx0,cy2-cy0);
+      const rr=Math.max(3,(pxU/G.gap)*(G.bubbleDpt*0.55/2));
+      const {x,y}=calibrateBubbleCenter(gray,w,h,cx0,cy0,rr);
+      return {dark:sampleFillRatio(bin,w,h,x,y,rr*0.75),cx:x,cy:y,r:rr};
+    };
+    let best=null;
+    for(const dst of orients){
+      const H3=homography([[0,0],[1,0],[0,1],[1,1]],dst);
+      if(!H3) continue;
+      // 5행×5열 채움비율 계산
+      const grid=[];
+      for(let ri=0;ri<5;ri++){
+        const row=[];
+        for(let ci=0;ci<5;ci++) row.push(sampleAt(H3,G.colU1+ci*G.gap,G.rows[ri]));
+        grid.push(row);
+      }
+      // 방향 점수: 각 행에서 "가장 진한 칸"이 뚜렷하고(1위-2위 차 큼), 그런 행이 많을수록 좋음.
+      // + 행 간 마킹 열이 제각각이어야(실제 답안) 자연스러움 → 진한 칸 표준편차 가점.
+      let score=0; const topCols=[];
+      for(const row of grid){
+        const sorted=[...row].map(x=>x.dark).sort((a,b)=>b-a);
+        const gap=sorted[0]-sorted[1];
+        if(sorted[0]>0.35){ score+=gap; topCols.push(row.map(x=>x.dark).indexOf(sorted[0])); }
+      }
+      if(topCols.length){
+        const mean=topCols.reduce((a,b)=>a+b,0)/topCols.length;
+        const varc=topCols.reduce((a,b)=>a+(b-mean)*(b-mean),0)/topCols.length;
+        score += Math.min(varc,4)*0.15;   // 열 다양성 가점(과도하지 않게 캡)
+      }
+      if(!best || score>best.score){ best={score,grid,H3}; }
+    }
+    if(best) t3map=best.grid;   // grid[ri][ci] = {dark,cx,cy,r}
+  }
+
+  // ── 고3 카드(seoroH3): 세 표를 각자의 외곽 사각형으로 독립 매핑 ──
+  let h3Maps=null;
+  if(scanTemplate==="seoroH3" && seoroH3Tabs){
+    h3Maps={};
+    for(const tab of ["T1","T2","T3"]){
+      const c=seoroH3Tabs[tab];
+      const Ht=homography([[0,0],[1,0],[0,1],[1,1]],[c.TL,c.TR,c.BL,c.BR]);
+      if(!Ht) throw new Error("고3 카드 표("+tab+") 정렬에 실패했습니다. 세 답란 표가 모두 가려지지 않게 다시 촬영해 주세요.");
+      h3Maps[tab]=Ht;
+    }
+  }
+
+  const perQ=items.map(item=>{
+    const t3q=(t3map && item.q>=41 && item.q<=45);
+    if(t3q){
+      const row=t3map[item.q-41];
+      const dk=row.map((s,ci)=>({c:ci+1,cx:s.cx,cy:s.cy,r:s.r,dark:s.dark}));
+      return {q:item.q,dk};
+    }
+    const Hq=(h3Maps && item.tab)?h3Maps[item.tab]:H;
+    const duq=item.du||du, bDq=item.bd||bubbleD;
+    const dk=item.bubbles.map(b=>{
+      const [cx0,cy0]=applyH(Hq,b.u,b.v);
+      const [cx2,cy2]=applyH(Hq,b.u+duq,b.v);
+      const pxPerUnit=Math.hypot(cx2-cx0,cy2-cy0);   // du(스텝)당 픽셀
+      const r=Math.max(3, pxPerUnit*(bDq*0.55/2));   // bDq는 du 스텝 단위의 버블 지름
+      const {x:cx,y:cy}=calibrateBubbleCenter(gray,w,h,cx0,cy0,r);   // 인쇄 오차·왜곡 잔차 보정
+      // 보정된 중심을 기준으로 '핵심 코어 영역'(r*0.75)만 샘플링해 버블 테두리 선(인쇄선)이
+      // 채움 비율에 섞여 들어가는 것을 막는다. adaptiveBin은 유지해 그림자·조명 불균일에는 계속 강하다.
+      const dark=sampleFillRatio(bin,w,h,cx,cy,r*0.75);
+      return {c:b.c,cx,cy,r,dark};
+    });
+    // H3 카드는 버블이 작아(코어 반경 ≈3.4px) 기울어진 촬영에서 미표기 버블이 링 호(arc)
+    // 잉크를 물면 농도 0.1~0.19가 나온다(실측). 저신뢰 구제 규칙의 바닥값을 0.22로 올려
+    // 이런 우발 잉크가 마킹으로 오인되지 않게 한다(진짜 연한 마킹은 코어를 채워 0.3+).
+    return {q:item.q,dk,rescueFloor:item.tab?0.22:undefined};
+  });
+  // ── 고3 카드: 표·열별 인쇄 베이스라인 차감 ──
+  // 빈 버블도 링+내부 숫자 획 때문에 0이 아닌 농도를 갖고, 숫자별(④가 가장 진함) 편차가 있다.
+  // 같은 표·같은 열의 하위 25% 분위값을 "빈 버블 인쇄 농도"로 보고 차감해
+  // 마킹 잉크만 남긴다. 25% 분위를 쓰는 이유: 한 열에 마킹이 몰려도(최대 75%까지)
+  // 하위 분위는 빈 버블에서 나오므로 안전하다. 분위값이 0.6을 넘으면(전 행 몰빵 등
+  // 비정상 상황) 인쇄 농도일 수 없으므로 0.6으로 캡해 실마킹이 지워지지 않게 한다.
+  if(h3Maps){
+    const byTab={};
+    items.forEach((it,idx)=>{ if(it.tab) (byTab[it.tab]??=(byTab[it.tab]=[])).push(perQ[idx]); });
+    for(const tab in byTab){
+      for(let c=0;c<5;c++){
+        const vals=byTab[tab].map(p=>p.dk[c].dark).sort((a,b)=>a-b);
+        const base=Math.min(vals[(vals.length*0.25)|0], 0.6);
+        byTab[tab].forEach(p=>{ p.dk[c].dark=Math.max(0, p.dk[c].dark-base); });
+      }
+    }
+  }
+  lastScan={gray,w,h,H,layout:items,canvas,perQ,fids:dstPts,t3:(t3map?seoroT3:null)};
+  return decide(perQ);
+}
+/* 전체 CV: 이미지 → 판독. 실패 시 90/180/270도 회전 재시도.
+   서로 카드는 좌측바가 우측바보다 길다는 성질로 뒤집힘(180도)을 판별한다. */
+let baseScan=null;   // 수동 모드에서 재사용
+/* 좌/우 기준선이 진짜 카드의 좌우 세로 바인지 기하학적으로 검증.
+   표 테두리나 글자획을 잘못 짚었을 때 나타나는 비뚤어진 사다리꼴(사용자 신고 사례)을 걸러낸다.
+   조건: ① 좌우 길이 비율이 비슷할 것(순간 시야에서 원근 왜곡을 고려해 40%까지 허용)
+        ② 좌우 바가 서로 크게 어긋난 방향(비평행)이 아닐 것(코사인 유사도로 확인)
+        ③ 좌우 바 사이 가로 폭이 사진 폭의 최소 25% 이상일 것(너무 좁으면 오탐) */
+function quadIsSane(lt,rt,lb,rb,w,h,minGapFrac){
+  const lLen=Math.hypot(lb[0]-lt[0],lb[1]-lt[1]);
+  const rLen=Math.hypot(rb[0]-rt[0],rb[1]-rt[1]);
+  if(Math.min(lLen,rLen) < Math.max(lLen,rLen)*0.6) return false;
+  const lv=[(lb[0]-lt[0])/lLen,(lb[1]-lt[1])/lLen];
+  const rv=[(rb[0]-rt[0])/rLen,(rb[1]-rt[1])/rLen];
+  const cos=lv[0]*rv[0]+lv[1]*rv[1];
+  if(cos < 0.85) return false;
+  const gapTop=Math.abs(rt[0]-lt[0]), gapBot=Math.abs(rb[0]-lb[0]);
+  // 최소 가로 폭 기준: 타이밍바(카드 좌우 끝)는 넓지만(0.25), 표 테두리 앵커는 두 표 사이라 좁다(0.15).
+  const minFrac = (minGapFrac!==undefined) ? minGapFrac : 0.25;
+  if(Math.min(gapTop,gapBot) < w*minFrac) return false;
+  if(Math.max(gapTop,gapBot) > Math.min(gapTop,gapBot)*1.5) return false;
+  return true;
+}
+/* 판독 결과가 그럴듯한지 점검: 대부분의 문항이 "표기 없음/저신뢰"로 나오면
+   기준점을 엉뚱한 위치(예: 4모서리 마크 카드를 180도 뒤집어 매칭)에 맞춘 것으로 의심.
+   이 경우 성공으로 보지 않고 다음 조합(회전/템플릿)을 계속 시도한다. */
+function scanIsPlausible(rec){
+  if(!rec || !rec.length) return false;
+  const blankOrLow=rec.filter(x=>x.a===0||x.conf==="low").length;
+  const high=rec.filter(x=>x.a!==0&&x.conf==="high").length;
+  // 미표기·저신뢰가 70% 이상이거나, 고신뢰 문항이 25% 미만이면 잘못된 정렬로 판정
+  return blankOrLow < rec.length*0.7 && high >= rec.length*0.25;
+}
+/* 특정 템플릿 하나에 대해 회전 0/180/90/270을 모두 시도.
+   전역 scanTemplate을 해당 템플릿으로 맞춰야 detectFiducials/scanGeometry가
+   올바른 기하(타이밍바 vs 4모서리 마크)를 사용한다. */
+function tryTemplate(tpl, base){
+  scanTemplate=tpl;
+  const tries = tpl==="seoro" ? [0,90,270,180] : [0,180,90,270];
+  // 타이밍바(seoro)는 좌우 바 길이차로 방향을 자체 판별하므로 첫 성공을 바로 채택한다.
+  // 표 테두리(seoroT)·모서리마크(app)는 상하/좌우 대칭이라 뒤집힌 방향도 그럴듯하게 통과할 수 있어,
+  // 통과한 후보들 중 "고신뢰 문항이 가장 많은" 방향을 선택한다(정방향일 때 고신뢰가 최대가 됨).
+  const selfOriented = (tpl==="seoro");
+  let best=null, bestScore=-1;
+  for(const deg of tries){
+    const t = deg===0 ? base : rotateGrayCanvas(base,deg);
+    const fd=detectFiducials(t.gray,t.w,t.h);
+    if(!fd) continue;
+    const [lt,rt,lb,rb]=fd.dst;
+    if(tpl==="seoro"){
+      const lLen=Math.hypot(lb[0]-lt[0],lb[1]-lt[1]);
+      const rLen=Math.hypot(rb[0]-rt[0],rb[1]-rt[1]);
+      if(lLen < rLen*1.02) continue;   // 뒤집힌 방향 → 다음 회전에서 매칭됨
+    }
+    // 표 테두리(seoroT)·모서리마크(app)는 앵커 간 가로 폭이 타이밍바보다 좁으므로 최소폭 기준을 완화
+    const minGap = (tpl==="seoro") ? 0.25 : 0.15;
+    if(!quadIsSane(lt,rt,lb,rb,t.w,t.h,minGap)) continue;   // 오탐(비뚤어진 사각형) → 다음 시도
+    let rec;
+    try{ rec=computeScan(t.gray,t.w,t.h,t.canvas,fd.src,fd.dst); }catch(e){ continue; }
+    if(!scanIsPlausible(rec)) continue;   // 명백히 잘못된 매칭 제거
+    if(selfOriented) return rec;          // 방향 자체판별 가능 → 첫 성공 채택
+    const highCnt=rec.filter(x=>x.a!==0&&x.conf==="high").length;
+    if(highCnt>bestScore){ bestScore=highCnt; best=rec; }
+    if(highCnt===45) break;               // 완벽 → 조기 종료
+  }
+  return best;
+}
+/* 전체 CV: 이미지 → 판독. 카드 종류(4모서리 마크 'app' / 타이밍바 'seoro')를 자동으로
+   모두 시도하므로, 사용자가 미리 템플릿을 선택하지 않아도 둘 중 맞는 쪽으로 인식된다. */
+function analyze(img){
+  baseScan=toGray(img);
+  // 서로카드(45문항): 타이밍바 → 표 테두리(기준점 없는 인쇄본) → 4모서리 마크 순으로 시도.
+  // 표 테두리 방식이 4모서리보다 먼저인 이유: 4모서리 탐지가 로고 등을 오인할 가능성이 남아 있어
+  // 카드 고유 구조(답란 표)를 우선 신뢰한다.
+  // 고3 프리셋 선택 시 고3 카드 템플릿(seoroH3)을 우선 시도. 그 외에는 기존 순서 뒤에 후보로 추가.
+  // 두 카드 계열은 표 높이 비율 조건이 상호 배타적이라 순서와 무관하게 오인식되지 않지만,
+  // 우선순위를 두면 불필요한 탐지 시도를 줄여 판독이 빨라진다.
+  const curEx=EXAM_LIBRARY.find(e=>e.id===currentExamId);
+  const order = state.qCount===45
+    ? (curEx&&curEx.grp==="h3" ? ["seoroH3","seoro","seoroT","app"] : ["seoro","seoroT","seoroH3","app"])
+    : ["app"];
+  const originalTpl=scanTemplate;
+  for(const tpl of order){
+    const rec=tryTemplate(tpl, baseScan);
+    if(rec) return rec;   // scanTemplate는 성공한 템플릿으로 남겨 두어 이후 UI/재채점에 일관되게 사용
+  }
+  scanTemplate=originalTpl;
+  throw new Error("답안지의 기준점(모서리 마크 또는 카드 좌우 기준선)을 찾지 못했습니다. 기준점이 잘리거나 가려지지 않게, 그림자 없이 카드 전체가 나오도록 다시 촬영해 주세요.");
+}
+/* 농도 → 답 결정 (적응형 임계값)
+   고정 임계값(FILL_THRESH)만 쓰면 연한 마킹·저대비 촬영에서 대량 "미표기"가 발생한다.
+   대신 이 사진 안의 전체 버블 농도 분포에서 "마킹된 무리"와 "빈 무리"를 Otsu로 분리해
+   그 사진에 맞는 임계값을 스스로 정한다. 분리가 불가능하면(전부 빈 답안 등) 고정값으로 폴백. */
+function adaptiveFillThresh(perQ){
+  const darks=[];
+  perQ.forEach(({dk})=>dk.forEach(b=>darks.push(b.dark)));
+  if(!darks.length) return FILL_THRESH;
+  // 0..1 농도를 256구간 히스토그램으로
+  const hist=new Uint32Array(256);
+  darks.forEach(d=>hist[Math.max(0,Math.min(255,(d*255)|0))]++);
+  const total=darks.length;
+  // Otsu
+  let sum=0; for(let i=0;i<256;i++)sum+=i*hist[i];
+  let sumB=0,wB=0,best=0,thrIdx=-1;
+  for(let i=0;i<256;i++){
+    wB+=hist[i]; if(!wB)continue;
+    const wF=total-wB; if(!wF)break;
+    sumB+=i*hist[i];
+    const mB=sumB/wB, mF=(sum-sumB)/wF;
+    const between=wB*wF*(mB-mF)*(mB-mF);
+    if(between>best){best=between;thrIdx=i;}
+  }
+  if(thrIdx<0) return FILL_THRESH;
+  const thr=thrIdx/255;
+  // 두 무리의 실제 분리도 검증: 마킹 무리 평균이 빈 무리 평균의 2배 이상이어야 신뢰
+  const lo=darks.filter(d=>d<=thr), hi=darks.filter(d=>d>thr);
+  if(!hi.length || !lo.length) return FILL_THRESH;
+  const mLo=lo.reduce((s,v)=>s+v,0)/lo.length, mHi=hi.reduce((s,v)=>s+v,0)/hi.length;
+  if(mHi < mLo*2 + 0.08) return FILL_THRESH;          // 분리 불충분 → 고정값
+  // 임계값은 두 무리 사이 중간점, 안전 범위로 클램프
+  return Math.max(0.12, Math.min(0.6, (mLo+mHi)/2));
+}
+function decide(perQ){
+  const thr=adaptiveFillThresh(perQ);
+  return perQ.map(({q,dk,rescueFloor})=>{
+    const sorted=[...dk].sort((a,b)=>b.dark-a.dark);
+    const top=sorted[0], second=sorted[1];
+    const floor=rescueFloor??0.10;   // 기본 0.10, H3 카드는 0.22(작은 버블 우발 잉크 방지)
+    let a=0, conf="high";
+    if(top.dark<thr){
+      // 절대 임계엔 못 미쳐도, 1위가 2위보다 압도적으로 진하면(2.5배+최소 바닥값) 연한 마킹으로 인정
+      if(top.dark>=floor && top.dark>=second.dark*2.5){ a=top.c; conf="low"; }
+      else { a=0; conf="low"; }
+    }
+    else if(top.dark-second.dark<REL_MARGIN){ a=top.c; conf="low"; } // 애매/중복
+    else { a=top.c; conf="high"; }
+    return {a,conf};
+  });
+}
+/* 오버레이: 사진 + 검출 마크/버블 시각화 */
+function drawOverlay(recog){
+  const {w,h,canvas,H,layout:L,perQ,fids}=lastScan;
+  const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+  const ctx=cv.getContext("2d"); ctx.drawImage(canvas,0,0);
+  // 검출 사각형
+  ctx.strokeStyle="#2ee6a0"; ctx.lineWidth=Math.max(2,w/400);
+  ctx.beginPath();
+  ctx.moveTo(fids[0][0],fids[0][1]); ctx.lineTo(fids[1][0],fids[1][1]);
+  ctx.lineTo(fids[3][0],fids[3][1]); ctx.lineTo(fids[2][0],fids[2][1]); ctx.closePath(); ctx.stroke();
+  fids.forEach(f=>{ctx.fillStyle="#2ee6a0";ctx.beginPath();ctx.arc(f[0],f[1],ctx.lineWidth*2.2,0,7);ctx.fill();});
+  // 각 버블 표시
+  perQ.forEach((p,i)=>{
+    const rec=recog[i];
+    p.dk.forEach(b=>{
+      const marked=(rec.a===b.c);
+      ctx.beginPath(); ctx.arc(b.cx,b.cy,b.r,0,7);
+      if(marked){ ctx.strokeStyle=rec.conf==="low"?"#e6a423":"#2563eb"; ctx.lineWidth=Math.max(2,w/380); ctx.stroke();
+        ctx.fillStyle=rec.conf==="low"?"rgba(230,164,35,.35)":"rgba(37,99,235,.35)"; ctx.fill(); }
+      else { ctx.strokeStyle="rgba(255,255,255,.5)"; ctx.lineWidth=1; ctx.stroke(); }
+    });
+  });
+  return cv.toDataURL("image/jpeg",0.85);
+}
+
+/* =========== 스캔 UI 흐름 =========== */
+const mask=document.getElementById("scanMask"), scanContent=document.getElementById("scanContent");
+document.querySelectorAll("#tplSwitch button").forEach(btn=>btn.onclick=()=>{
+  scanTemplate=btn.dataset.tpl;
+  document.querySelectorAll("#tplSwitch button").forEach(x=>x.classList.toggle("on",x===btn));
+});
+document.getElementById("camBtn").onclick=()=>document.getElementById("fileCam").click();
+document.getElementById("galBtn").onclick=()=>document.getElementById("fileGal").click();
+document.getElementById("fileCam").onchange=e=>handleFile(e.target.files[0]);
+document.getElementById("fileGal").onchange=e=>handleFile(e.target.files[0]);
+mask.onclick=e=>{if(e.target===mask)closeScan();};
+function openScan(){mask.classList.add("on");}
+function closeScan(){mask.classList.remove("on");document.getElementById("fileCam").value="";document.getElementById("fileGal").value="";}
+
+let lastImg=null, reviewData=[];
+async function handleFile(file){
+  if(!file)return;
+  if(state.key.some(k=>k.ans===0)){ toast("먼저 정답표를 완성하세요"); return; }
+  if(scanTemplate==="seoro" && state.qCount!==45){ toast("서로 카드는 45문항 시험에서만 사용합니다"); return; }
+  openScan(); showAnalyzing();
+  try{
+    lastImg = MOCK ? await mockImage() : await loadImage(file);
+    await new Promise(r=>setTimeout(r,80));
+    const recog=analyze(lastImg);
+    showReview(recog);
+  }catch(err){ showError(err.message||"인식 중 오류가 발생했습니다"); }
+}
+function showAnalyzing(){
+  scanContent.innerHTML=`<div class="mtitle">📷 답안지 분석 중</div>
+    <div class="analyzing"><div class="spinner"></div><p>기준선을 찾고 표기를 읽는 중…</p><span>잠시만 기다려 주세요</span></div>`;
+}
+function showError(msg){
+  const tip = state.qCount===45
+    ? "촬영 팁 · <b>네 모서리 검은 마크</b> 또는 카드 <b>좌우의 세로 막대</b>가 잘리지 않게, 그림자 없이 정면에서 찍으면 자동 인식률이 높아집니다."
+    : "촬영 팁 · <b>네 모서리 검은 마크</b>가 모두 나오게, 그림자 없이 밝은 곳에서 정면으로 찍으면 인식률이 높아집니다.";
+  // 수동 맞추기 버튼: 모서리 마크(app)는 문항수 무관하게 항상 제공, 카드형(seoro)은 45문항 전용
+  const manualBtns = baseScan ? [
+    `<button class="btn" id="manualCornerBtn" style="margin-bottom:9px">👆 모서리 마크 직접 맞추기</button>`,
+    state.qCount===45 ? `<button class="btn alt" id="manualBtn" style="margin-bottom:11px">👆 카드(타이밍바) 직접 맞추기</button>` : ""
+  ].join("") : "";
+  scanContent.innerHTML=`<div class="mtitle">자동 인식에 실패했습니다</div>
+    <div class="err-box"><div class="et">답안지를 정렬하지 못했어요</div><div class="ed">${msg}</div></div>
+    <div class="msub">${tip}</div>
+    ${manualBtns}
+    <div class="mbtns"><button class="btn alt" onclick="closeScan()">직접 입력</button><button class="btn alt" id="retryBtn">다시 촬영</button></div>`;
+  document.getElementById("retryBtn").onclick=()=>{closeScan();document.getElementById("galBtn").click();};
+  const mb=document.getElementById("manualBtn"); if(mb) mb.onclick=showManual;
+  const mcb=document.getElementById("manualCornerBtn"); if(mcb) mcb.onclick=showManualCorners;
+}
+/* ── 수동 기준점 모드 (2탭) ──
+   자동 탐지가 실패해도, 사용자가 좌/우 세로 막대 위 아무 곳이나 한 번씩 탭하면
+   그 주변 스트립에서 막대를 정밀 탐지해 끝점을 얻는다. 탭 정확도가 필요 없다. */
+const MANUAL_STEPS=[
+  "① <b>왼쪽 세로 막대</b>의 아무 곳이나 탭하세요",
+  "② <b>오른쪽 세로 막대</b>의 아무 곳이나 탭하세요"
+];
+let manualBars=[];
+/* 탭 x 주변 세로 스트립에서 막대를 정밀 탐지.
+   스트립을 세로 8구간으로 나눠 구간별 Otsu 이진화(조명 변화 대응, 막대 속이 채워짐)
+   → 연결성분 중 길고 가는 것을 골라 끝점 산출. 탭 정확도는 필요 없다. */
+function detectBarAt(gray,w,h,tapX){
+  const halfW=55;
+  const x0=Math.max(0,(tapX-halfW)|0), x1=Math.min(w,(tapX+halfW)|0);
+  const rw=x1-x0;
+  const bin=new Uint8Array(rw*h);
+  const SEG=8, segH=Math.ceil(h/SEG);
+  for(let s=0;s<SEG;s++){
+    const y0=s*segH, y1=Math.min(h,(s+1)*segH);
+    const hist=new Uint32Array(256); let n=0;
+    for(let y=y0;y<y1;y++)for(let x=0;x<rw;x++){hist[gray[y*w+(x0+x)]|0]++;n++;}
+    const thr=otsu(hist,n);
+    for(let y=y0;y<y1;y++)for(let x=0;x<rw;x++)
+      bin[y*rw+x]=gray[y*w+(x0+x)]<thr?1:0;
+  }
+  const lab=new Int32Array(rw*h); const stack=[]; const cands=[];
+  for(let i=0;i<rw*h;i++){
+    if(bin[i]!==1||lab[i])continue;
+    stack.length=0; stack.push(i); lab[i]=1;
+    let head=0,minx=1e9,maxx=-1,miny=1e9,maxy=-1; const pts=[];
+    while(head<stack.length){
+      const p=stack[head++]; const px=p%rw, py=(p/rw)|0;
+      if(px<minx)minx=px; if(px>maxx)maxx=px; if(py<miny)miny=py; if(py>maxy)maxy=py;
+      pts.push(p);
+      if(px>0&&bin[p-1]&&!lab[p-1]){lab[p-1]=1;stack.push(p-1);}
+      if(px<rw-1&&bin[p+1]&&!lab[p+1]){lab[p+1]=1;stack.push(p+1);}
+      if(py>0&&bin[p-rw]&&!lab[p-rw]){lab[p-rw]=1;stack.push(p-rw);}
+      if(py<h-1&&bin[p+rw]&&!lab[p+rw]){lab[p+rw]=1;stack.push(p+rw);}
+    }
+    const bh=maxy-miny+1, bw=maxx-minx+1;
+    if(bh < h*0.4) continue;
+    if(bh/Math.max(1,bw) < 5) continue;
+    if(bw > rw*0.6) continue;
+    const span=maxy-miny, band=Math.max(2,span*0.01);
+    let tx=0,tn=0,bx=0,bn=0,cx=0;
+    for(const p of pts){
+      const px=p%rw, py=(p/rw)|0; cx+=px;
+      if(py<=miny+band){tx+=px;tn++;}
+      if(py>=maxy-band){bx+=px;bn++;}
+    }
+    cands.push({cx:x0+cx/pts.length, top:[x0+tx/tn,miny], bot:[x0+bx/bn,maxy], len:span, wd:bw});
+  }
+  if(!cands.length) return null;
+  // 타이밍바: 구조 폭 4px~이미지폭 5% (기울어진 촬영이면 바운딩박스가 넓어지므로 상한 여유).
+  // 표 테두리(1~3px)는 1순위에서 제외. 각 단계에서 탭에 가장 가까운 것 선택
+  const t1=cands.filter(c=>c.wd>=4 && c.wd<=w*0.05), pool=t1.length?t1:cands;
+  pool.sort((a,b)=>Math.abs(a.cx-tapX)-Math.abs(b.cx-tapX));
+  return pool[0];
+}
+function showManual(){
+  if(!baseScan){ toast("먼저 사진을 촬영/업로드하세요"); return; }
+  manualBars=[];
+  scanContent.innerHTML=`
+    <div class="mtitle">👆 기준선 직접 지정</div>
+    <div class="msub" id="manualStep">${MANUAL_STEPS[0]}</div>
+    <canvas class="overlay-canvas" id="manualCv" style="touch-action:none;cursor:crosshair"></canvas>
+    <div class="hint" style="margin:0 0 12px">막대의 <b>아무 위치</b>나 탭하면 됩니다. 정확히 누를 필요 없어요 — 막대 근처면 자동으로 찾아 붙습니다.</div>
+    <div class="mbtns">
+      <button class="btn alt" id="manualUndo">되돌리기</button>
+      <button class="btn" id="manualGo" disabled>판독하기 (0/2)</button>
+    </div>`;
+  const cv=document.getElementById("manualCv");
+  const {canvas:baseCv,gray,w,h}=baseScan;
+  cv.width=w; cv.height=h;
+  const ctx=cv.getContext("2d");
+  const paint=()=>{
+    ctx.drawImage(baseCv,0,0);
+    const cols=["#2563EB","#C0392B"];
+    manualBars.forEach((b,i)=>{
+      ctx.strokeStyle=cols[i]; ctx.lineWidth=Math.max(3,w/300);
+      ctx.beginPath(); ctx.moveTo(b.top[0],b.top[1]); ctx.lineTo(b.bot[0],b.bot[1]); ctx.stroke();
+      ctx.fillStyle=cols[i];
+      [b.top,b.bot].forEach(p=>{ctx.beginPath();ctx.arc(p[0],p[1],Math.max(5,w/150),0,7);ctx.fill();});
+    });
+    const step=document.getElementById("manualStep");
+    const go=document.getElementById("manualGo");
+    if(manualBars.length<2){ step.innerHTML=MANUAL_STEPS[manualBars.length]; go.disabled=true; go.textContent=`판독하기 (${manualBars.length}/2)`; }
+    else { step.innerHTML="✅ 두 기준선 확인 — <b>판독하기</b>를 누르세요"; go.disabled=false; go.textContent="판독하기 (2/2)"; }
+  };
+  paint();
+  const fullCands=collectBarCandidates(gray,w,h);   // 자동 엔진과 동일한 후보 (1회 계산)
+  cv.onpointerdown=e=>{
+    if(manualBars.length>=2) return;
+    const rect=cv.getBoundingClientRect();
+    const x=(e.clientX-rect.left)*(w/rect.width);
+    // 1) 전체 이미지 후보 중 탭에 가장 가까운 것 (자동 엔진과 동일 품질)
+    let bar=null, bd=w*0.12;
+    for(const c of fullCands){ const d=Math.abs(c.cx-x); if(d<bd){bd=d;bar=c;} }
+    // 2) 없으면 탭 주변 스트립에서 국소 탐지 (폴백)
+    if(!bar) bar=detectBarAt(gray,w,h,x);
+    if(!bar){ toast("근처에서 세로 막대를 찾지 못했어요. 막대 위를 다시 탭해 주세요"); return; }
+    if(manualBars.length===1 && Math.abs(manualBars[0].cx-bar.cx)<w*0.1){
+      toast("같은 막대예요. 반대쪽 막대를 탭해 주세요"); return;
+    }
+    manualBars.push(bar); paint();
+  };
+  document.getElementById("manualUndo").onclick=()=>{ manualBars.pop(); paint(); };
+  document.getElementById("manualGo").onclick=()=>{
+    try{
+      let [A,B]=manualBars;
+      if(A.cx>B.cx){ const t=A; A=B; B=t; }          // 좌/우 정렬
+      let L=A, R=B, flip=false;
+      if(L.len < R.len*1.0){ flip=true; }             // 좌측이 짧으면 카드가 180도 뒤집힘
+      let dst;
+      if(!flip) dst=[L.top,R.top,L.bot,R.bot];
+      else      dst=[R.bot,L.bot,R.top,L.top];        // 뒤집힘: 좌우·상하 반전 매핑
+      const srcPts=[[0,0],[1,0],[0,1],[1,SEORO_V2.rbBottomV]];
+      scanTemplate="seoro";   // 수동 맞추기는 타이밍바(카드형) 기하 전용
+      const recog=computeScan(gray,w,h,baseScan.canvas,srcPts,dst);
+      showReview(recog);
+    }catch(err){ showError(err.message||"판독 중 오류가 발생했습니다"); }
+  };
+}
+/* ── 수동 기준점 모드 (4탭, 모서리 마크용) ──
+   자동 탐지가 실패해도, 네 모서리의 검은 정사각형 마크를 순서대로 한 번씩 탭하면
+   그 주변에서 마크를 정밀 재탐지해 중심으로 스냅한다. 문항 수(qCount)에 관계없이 사용 가능. */
+const MANUAL_STEPS_CORNER=[
+  "① <b>왼쪽 위</b> 모서리 마크를 탭하세요",
+  "② <b>오른쪽 위</b> 모서리 마크를 탭하세요",
+  "③ <b>왼쪽 아래</b> 모서리 마크를 탭하세요",
+  "④ <b>오른쪽 아래</b> 모서리 마크를 탭하세요"
+];
+let manualCorners=[];
+function showManualCorners(){
+  if(!baseScan){ toast("먼저 사진을 촬영/업로드하세요"); return; }
+  manualCorners=[];
+  scanContent.innerHTML=`
+    <div class="mtitle">👆 모서리 마크 직접 지정</div>
+    <div class="msub" id="manualStep">${MANUAL_STEPS_CORNER[0]}</div>
+    <canvas class="overlay-canvas" id="manualCv" style="touch-action:none;cursor:crosshair"></canvas>
+    <div class="hint" style="margin:0 0 12px">각 모서리의 <b>검은 사각형 마크</b> 근처를 탭하면 자동으로 중심에 붙습니다. 정확히 누를 필요 없어요.</div>
+    <div class="mbtns">
+      <button class="btn alt" id="manualUndo">되돌리기</button>
+      <button class="btn" id="manualGo" disabled>판독하기 (0/4)</button>
+    </div>`;
+  const cv=document.getElementById("manualCv");
+  const {canvas:baseCv,gray,w,h}=baseScan;
+  cv.width=w; cv.height=h;
+  const ctx=cv.getContext("2d");
+  const paint=()=>{
+    ctx.drawImage(baseCv,0,0);
+    const cols=["#2563EB","#0E7A55","#C77D0A","#C0392B"];
+    manualCorners.forEach((p,i)=>{
+      ctx.strokeStyle=cols[i]; ctx.fillStyle=cols[i]; ctx.lineWidth=Math.max(3,w/300);
+      ctx.beginPath(); ctx.arc(p[0],p[1],Math.max(9,w/70),0,7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(p[0],p[1],Math.max(3,w/260),0,7); ctx.fill();
+      ctx.font=`bold ${Math.max(16,w/40)}px sans-serif`;
+      ctx.fillText(String(i+1), p[0]+Math.max(10,w/70), p[1]-Math.max(10,w/70));
+    });
+    const step=document.getElementById("manualStep");
+    const go=document.getElementById("manualGo");
+    if(manualCorners.length<4){ step.innerHTML=MANUAL_STEPS_CORNER[manualCorners.length]; go.disabled=true; go.textContent=`판독하기 (${manualCorners.length}/4)`; }
+    else { step.innerHTML="✅ 네 모서리 확인 — <b>판독하기</b>를 누르세요"; go.disabled=false; go.textContent="판독하기 (4/4)"; }
+  };
+  paint();
+  cv.onpointerdown=e=>{
+    if(manualCorners.length>=4) return;
+    const rect=cv.getBoundingClientRect();
+    const x=Math.round((e.clientX-rect.left)*(w/rect.width));
+    const y=Math.round((e.clientY-rect.top)*(h/rect.height));
+    const pt=detectCornerAt(gray,w,h,x,y);
+    if(!pt){ toast("근처에서 모서리 마크를 찾지 못했어요. 마크 위를 다시 탭해 주세요"); return; }
+    manualCorners.push(pt); paint();
+  };
+  document.getElementById("manualUndo").onclick=()=>{ manualCorners.pop(); paint(); };
+  document.getElementById("manualGo").onclick=()=>{
+    try{
+      const [TL,TR,BL,BR]=manualCorners;
+      scanTemplate="app";   // 모서리 마크 기하로 판독
+      const srcPts=[[0,0],[1,0],[0,1],[1,1]];
+      const recog=computeScan(gray,w,h,baseScan.canvas,srcPts,[TL,TR,BL,BR]);
+      showReview(recog);
+    }catch(err){ showError(err.message||"판독 중 오류가 발생했습니다"); }
+  };
+}
+function showReview(recog){
+  reviewData=recog.slice();
+  renderReview();
+}
+function renderReview(){
+  const readable=reviewData.filter(x=>x.a!==0).length;
+  const low=reviewData.filter(x=>x.conf==="low").length;
+  const overlay=drawOverlay(reviewData);
+  scanContent.innerHTML=`
+    <div class="mtitle">✅ 인식 결과 확인</div>
+    <div class="msub">아래 사진에서 정렬(초록 사각형)과 표기 인식을 확인하세요. <b>주황색은 불확실</b>한 문항입니다.</div>
+    <img class="overlay-canvas" src="${overlay}" alt="인식 오버레이">
+    <div class="sens">
+      <label>인식 감도</label>
+      <input type="range" id="sensRange" min="20" max="55" value="${Math.round(FILL_THRESH*100)}">
+      <span class="val" id="sensVal">${Math.round(FILL_THRESH*100)}</span>
+    </div>
+    <div class="review-head">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <p>기계 판독 결과입니다. <b>반드시 확인·수정 후</b> 적용하세요.</p>
+    </div>
+    <div class="review-stats">
+      <div class="rs"><div class="v">${reviewData.length}</div><div class="k">전체</div></div>
+      <div class="rs"><div class="v" style="color:var(--correct)">${readable}</div><div class="k">인식됨</div></div>
+      <div class="rs"><div class="v" style="color:var(--amber)">${low}</div><div class="k">확인 필요</div></div>
+    </div>
+    <div class="qgrid" id="reviewGrid"></div>
+    <div class="mbtns" style="margin-top:16px">
+      <button class="btn alt" id="retakeBtn">다시 촬영</button>
+      <button class="btn" id="applyBtn">적용하기</button>
+    </div>`;
+  renderReviewGrid();
+  const sr=document.getElementById("sensRange"), sv=document.getElementById("sensVal");
+  sr.oninput=()=>{ sv.textContent=sr.value; FILL_THRESH=+sr.value/100; reviewData=decide(lastScan.perQ); renderReview(); };
+  document.getElementById("retakeBtn").onclick=()=>{closeScan();document.getElementById("galBtn").click();};
+  document.getElementById("applyBtn").onclick=applyRecognized;
+}
+function renderReviewGrid(){
+  const g=document.getElementById("reviewGrid"); g.innerHTML="";
+  reviewData.forEach((d,i)=>{
+    const cell=document.createElement("div"); cell.className="qcell"+(d.conf==="low"?" lowconf":"");
+    cell.innerHTML=`${d.conf==="low"?'<span class="tag">확인</span>':''}<div class="qno">${i+1}</div>
+      <div class="choices">${[1,2,3,4,5].map(x=>`<button class="ch ${d.a===x?'on':''}" data-q="${i}" data-n="${x}">${x}</button>`).join("")}</div>`;
+    g.appendChild(cell);
+  });
+  g.querySelectorAll(".ch").forEach(b=>b.onclick=()=>{const q=+b.dataset.q,x=+b.dataset.n;reviewData[q].a=reviewData[q].a===x?0:x;reviewData[q].conf="high";renderReviewGrid();});
+}
+function applyRecognized(){
+  reviewData.forEach((d,i)=>{state.ans[i]=d.a;});
+  const blank=state.ans.findIndex(a=>a===0);
+  curQ=blank>=0?blank:0;
+  updateAnsUI(blank>=0); closeScan();
+  toast(blank>=0?`미표기 ${state.ans.filter(a=>a===0).length}문항을 확인하세요`:"답안을 채워 넣었습니다. 확인 후 채점하세요");
+}
+
+/* mock: 인쇄 답안지를 캔버스로 그린 뒤 일부 칠하고 왜곡 (테스트용) */
+function mockImage(){
+  return new Promise(res=>{
+    if(scanTemplate==="seoro") return res(mockSeoro());
+    const cv=document.createElement("canvas");
+    const DPMM=4; cv.width=SHEET.pageW*DPMM; cv.height=SHEET.pageH*DPMM;
+    const ctx=cv.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,cv.width,cv.height);
+    const half=SHEET.fidSize/2;
+    ctx.fillStyle="#000";
+    [[SHEET.fx0,SHEET.fy0],[SHEET.fx1,SHEET.fy0],[SHEET.fx0,SHEET.fy1],[SHEET.fx1,SHEET.fy1]].forEach(([x,y])=>ctx.fillRect((x-half)*DPMM,(y-half)*DPMM,SHEET.fidSize*DPMM,SHEET.fidSize*DPMM));
+    const L=layout(state.qCount);
+    const bD=L.geo.bubbleD;
+    L.forEach(item=>{
+      const ans=((item.q-1)%5)+1; const blank=item.q%13===0;
+      item.bubbles.forEach(b=>{
+        const [bx,by]=norm2mm(b.u,b.v);
+        ctx.strokeStyle="#111"; ctx.lineWidth=1.2;
+        ctx.beginPath(); ctx.arc(bx*DPMM,by*DPMM,bD/2*DPMM,0,7); ctx.stroke();
+        if(!blank && b.c===ans){ ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(bx*DPMM,by*DPMM,bD/2*0.8*DPMM,0,7); ctx.fill(); }
+      });
+    });
+    const g=ctx.createLinearGradient(0,0,cv.width,cv.height);
+    g.addColorStop(0,"rgba(0,0,0,0.06)"); g.addColorStop(1,"rgba(0,0,0,0)");
+    ctx.fillStyle=g; ctx.fillRect(0,0,cv.width,cv.height);
+    const img=new Image(); img.onload=()=>res(img); img.src=cv.toDataURL("image/jpeg",0.9);
+  });
+}
+/* 서로 카드 합성(테스트용): A4 가로 + 좌우 타이밍바 + V2 기하 버블 */
+function mockSeoro(){
+  const PW=841, PH=595, S=4;
+  const cv=document.createElement("canvas"); cv.width=PW*S; cv.height=PH*S;
+  const ctx=cv.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,cv.width,cv.height);
+  // 프레임: 좌바 중심 x=260, 우바 중심 x=780, 바 상단 y=54, 좌바 하단 y=554
+  const LX=260,RX=780,TY=54,LBY=554, FW=RX-LX, FH=LBY-TY, BW=10;
+  ctx.fillStyle="#000";
+  ctx.fillRect((LX-BW/2)*S, TY*S, BW*S, (LBY-TY)*S);                       // 좌측 바
+  ctx.fillRect((RX-BW/2)*S, TY*S, BW*S, FH*SEORO_V2.rbBottomV*S);          // 우측 바(짧음)
+  const U2X=u=>LX+u*FW, V2Y=v=>TY+v*FH;
+  const {items,bubbleD}=scanGeometry();
+  items.forEach(item=>{
+    const ans=((item.q-1)%5)+1; const blank=item.q%13===0;
+    item.bubbles.forEach(b=>{
+      const x=U2X(b.u), y=V2Y(b.v);
+      ctx.strokeStyle="#111"; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(x*S,y*S,bubbleD/2*S*FW/793*1.6,0,7); ctx.stroke();
+      if(!blank && b.c===ans){ ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(x*S,y*S,bubbleD/2*0.8*S*FW/793*1.6,0,7); ctx.fill(); }
+    });
+  });
+  const g=ctx.createLinearGradient(0,0,cv.width,cv.height);
+  g.addColorStop(0,"rgba(0,0,0,0.05)"); g.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=g; ctx.fillRect(0,0,cv.width,cv.height);
+  const img=new Image(); const done=cv.toDataURL("image/jpeg",0.9);
+  return new Promise(r=>{img.onload=()=>r(img); img.src=done;});
+}
+
+/* =========== 채점 / 결과 (v1 로직) =========== */
+function grade(){
+  if(state.key.some(k=>k.ans===0)){ toast(`정답표 미입력 문항이 있어요`); return null; }
+  let correct=0,wrong=0,unmarked=0,rawScore=0,totalPoints=0;
+  const detail=state.key.map((k,i)=>{
+    totalPoints+=k.points; const a=state.ans[i]; let st;
+    if(k.allCorrect || (a!==0 && a===k.ans)){correct++;rawScore+=k.points;st="correct";}
+    else {wrong++; st="wrong"; if(a===0) unmarked++;}   // 미표기 = 오답(0점)
+    return {q:i+1,...k,given:a,st,unmarked:a===0};
+  });
+  const areaStat={}; detail.forEach(d=>{const a=d.area||"미지정";(areaStat[a]??=(areaStat[a]={correct:0,total:0}));areaStat[a].total++;if(d.st==="correct")areaStat[a].correct++;});
+  const diffStat={}; DIFF.forEach(dd=>diffStat[dd]={correct:0,total:0}); detail.forEach(d=>{diffStat[d.diff].total++;if(d.st==="correct")diffStat[d.diff].correct++;});
+  return {correct,wrong,unmarked,rawScore,totalPoints,detail,areaStat,diffStat,
+    exam:document.getElementById("examName").value.trim()||"국어 모의고사",
+    date:document.getElementById("examDate").value||new Date().toISOString().slice(0,10),
+    student:document.getElementById("studentName").value.trim(),qCount:state.qCount,
+    examId:currentExamId};
+}
+function estGrade(p){if(p>=96)return 1;if(p>=89)return 2;if(p>=77)return 3;if(p>=60)return 4;if(p>=40)return 5;if(p>=23)return 6;if(p>=11)return 7;if(p>=4)return 8;return 9;}
+/* 등급 산출: 회차별 실제 등급컷(cuts, 원점수 기준)이 있으면 그것을,
+   없으면 정규분포 근사 백분율 표(estGrade)를 참고용으로 사용한다. */
+function computeGrade(r){
+  const ex=r.examId?EXAM_LIBRARY.find(e=>e.id===r.examId):null;
+  if(ex && ex.cuts && r.totalPoints===100){
+    for(let g=1;g<=8;g++){ if(r.rawScore>=ex.cuts[g-1]) return {grade:g,real:true,cuts:ex.cuts}; }
+    return {grade:9,real:true,cuts:ex.cuts};
+  }
+  const pct=Math.round(r.rawScore/r.totalPoints*100);
+  return {grade:estGrade(pct),real:false,cuts:null};
+}
+/* ---------- AI 맞춤 학습 추천 보고서 ---------- */
+/* 틀린 문항만 모아 영역·난이도별로 정리한 오답 리포트 HTML.
+   미표기(안 칠함)와 오답(틀리게 칠함)을 구분하고, 영역별로 묶어 복습 우선순위를 보여준다. */
+function buildWrongReport(r){
+  const wrongs=r.detail.filter(d=>d.st==="wrong");
+  if(!wrongs.length) return `<div class="card" style="margin-bottom:16px"><div class="hint" style="margin:0">틀린 문항이 없습니다 👏 전 문항 정답입니다.</div></div>`;
+  // 영역별 그룹
+  const byArea={};
+  wrongs.forEach(d=>{ const a=d.area||"미지정"; (byArea[a]??=[]).push(d); });
+  // 잃은 점수·미표기 수
+  const lostPts=wrongs.reduce((s,d)=>s+(d.points||2),0);
+  const nUnmarked=wrongs.filter(d=>d.unmarked).length;
+  const nWrong=wrongs.length-nUnmarked;
+  // 영역을 오답 많은 순으로 정렬
+  const areaOrder=Object.entries(byArea).sort((a,b)=>b[1].length-a[1].length);
+  const areaBlocks=areaOrder.map(([a,list])=>{
+    const rows=list.sort((x,y)=>x.q-y.q).map(d=>{
+      const badge=d.unmarked
+        ? `<span class="wr-tag blank">미표기</span>`
+        : `<span class="wr-tag">표기 ${d.given}</span>`;
+      const diff=d.diff&&d.diff!=="중"?`<span class="wr-diff">난이도 ${d.diff}</span>`:"";
+      return `<div class="wr-row">
+        <div class="wr-q">${d.q}<small>번</small></div>
+        <div class="wr-mid"><b>정답 ${d.ans}</b> ${badge}${diff}</div>
+        <div class="wr-pt">${d.points||2}점</div>
+      </div>`;
+    }).join("");
+    return `<div class="wr-group">
+      <div class="wr-head"><span class="wr-area">${AREA_FULL[a]||a}</span><span class="wr-cnt">${list.length}문항</span></div>
+      ${rows}
+    </div>`;
+  }).join("");
+  return `<div class="card wr-card" style="margin-bottom:16px">
+    <div class="wr-summary">
+      <div class="wr-s"><b>${wrongs.length}</b><small>틀린 문항</small></div>
+      <div class="wr-s"><b>${nWrong}</b><small>오답</small></div>
+      <div class="wr-s"><b>${nUnmarked}</b><small>미표기</small></div>
+      <div class="wr-s"><b>-${lostPts}</b><small>실점</small></div>
+    </div>
+    ${areaBlocks}
+  </div>`;
+}
+/* ---------- 성취 프로필 육각(레이더) 그래프 ---------- */
+/* 6개 축 구성: 영역 성취도(3~4개) + 부족분은 공통 지표로 채움.
+   - 고배점(3점): 3점 문항 정답률 (고난도 대응력)
+   - 종합 정답률: 전체 문항 정답률
+   - 표기 완성도: 미표기 없이 끝까지 마킹했는가 (시험 운영 능력)
+   영역이 2개 이하(영역 미지정 커스텀 시험)면 그래프를 그리지 않는다. */
+function hexMetrics(r){
+  const axes=[];
+  for(const [a,s] of Object.entries(r.areaStat)){
+    if(a==="미지정"||!s.total) continue;
+    axes.push({label:AREA_FULL[a]||a, pct:Math.round(s.correct/s.total*100)});
+  }
+  if(axes.length<3) return null;
+  const three=r.detail.filter(d=>d.points===3);
+  const extras=[
+    {label:"고배점(3점)", pct:three.length?Math.round(three.filter(d=>d.st==="correct").length/three.length*100):null},
+    {label:"종합 정답률", pct:Math.round(r.correct/r.detail.length*100)},
+    {label:"표기 완성도", pct:Math.round((r.detail.length-r.unmarked)/r.detail.length*100)}
+  ].filter(e=>e.pct!==null);
+  for(const e of extras){ if(axes.length>=6) break; axes.push(e); }
+  return axes.slice(0,6);
+}
+/* 순수 SVG 문자열 — 앱 결과 화면과 발송 리포트·PDF가 공유 */
+function buildHexChart(r, opt={}){
+  const M=hexMetrics(r);
+  if(!M) return "";
+  const n=M.length;
+  const size=opt.size||300, cx=size/2, cy=size/2+6, R=size/2-52;
+  const dark=opt.dark||false;
+  const grid=dark?"rgba(255,255,255,.28)":"#D7DEE6";
+  const axis=dark?"rgba(255,255,255,.35)":"#C3CCD6";
+  const lab=dark?"rgba(255,255,255,.92)":"#3d4c5c";
+  const sub=dark?"rgba(255,255,255,.75)":"#7a8794";
+  const fillCol=dark?"rgba(255,255,255,.30)":"rgba(14,122,85,.22)";
+  const strokeCol=dark?"#ffffff":"#0E7A55";
+  const pt=(i,frac)=>{const ang=-Math.PI/2+i*2*Math.PI/n; return [cx+R*frac*Math.cos(ang), cy+R*frac*Math.sin(ang)];};
+  const ring=frac=>"M"+Array.from({length:n},(_,i)=>pt(i,frac).map(v=>v.toFixed(1)).join(",")).join("L")+"Z";
+  let svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 0 ${size+32} ${size}" style="width:100%;max-width:${size+32}px;height:auto;display:block;margin:0 auto" role="img" aria-label="성취 프로필 육각 그래프">`;
+  for(const f of [0.25,0.5,0.75,1]) svg+=`<path d="${ring(f)}" fill="none" stroke="${grid}" stroke-width="${f===1?1.4:1}"/>`;
+  for(let i=0;i<n;i++){const [x,y]=pt(i,1); svg+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${axis}" stroke-width="1"/>`;}
+  const poly=M.map((m,i)=>pt(i,Math.max(0.03,m.pct/100)).map(v=>v.toFixed(1)).join(",")).join(" ");
+  svg+=`<polygon points="${poly}" fill="${fillCol}" stroke="${strokeCol}" stroke-width="2.2" stroke-linejoin="round"/>`;
+  M.forEach((m,i)=>{
+    const [px,py]=pt(i,Math.max(0.03,m.pct/100));
+    svg+=`<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3.4" fill="${strokeCol}" stroke="${dark?"#0E7A55":"#fff"}" stroke-width="1.4"/>`;
+    const [lx,ly]=pt(i,1.24);
+    const anchor=Math.abs(lx-cx)<10?"middle":(lx>cx?"start":"end");
+    svg+=`<text x="${lx.toFixed(1)}" y="${(ly-3).toFixed(1)}" text-anchor="${anchor}" font-size="11.5" font-weight="800" fill="${lab}" font-family="inherit">${m.label}</text>`;
+    svg+=`<text x="${lx.toFixed(1)}" y="${(ly+11).toFixed(1)}" text-anchor="${anchor}" font-size="10.5" font-weight="700" fill="${sub}" font-family="JetBrains Mono,monospace">${m.pct}%</text>`;
+  });
+  svg+=`</svg>`;
+  return svg;
+}
+function generateLearningReport(r, g) {
+  const esc=s=>String(s==null?"":s);
+  const wrongs=r.detail.filter(d=>d.st==="wrong");
+  const totalQ=r.detail.length||45;
+
+  // ── 1) 영역별 약점 순위 (전 영역, 정답률 낮은 순) ──
+  const areaRank=Object.entries(r.areaStat)
+    .filter(([,s])=>s.total>0)
+    .map(([a,s])=>({area:a, name:AREA_FULL[a]||a, pct:Math.round(s.correct/s.total*100),
+                    wrong:s.total-s.correct, total:s.total}))
+    .sort((x,y)=>x.pct-y.pct);
+  const weakest=areaRank[0];
+
+  // ── 2) 실수 vs 실력 (배점 기반: 3점=고난도, 2점=표준) ──
+  // 표준(2점) 오답 = "맞힐 수 있었던" 실수형, 고난도(3점) 오답 = 실력 보완 필요
+  const marked=wrongs.filter(d=>!d.unmarked);
+  const easyMiss=marked.filter(d=>(d.points||2)<3).length;   // 2점 오답
+  const hardMiss=marked.filter(d=>(d.points||2)>=3).length;  // 3점 오답
+  const easyLost=marked.filter(d=>(d.points||2)<3).reduce((s,d)=>s+d.points,0);
+  let typeMsg="", typeTone="mix";
+  if(easyMiss+hardMiss===0){
+    typeMsg="표기한 문항은 모두 정답입니다. 미표기만 보완하면 됩니다.";
+  } else if(easyMiss>hardMiss){
+    typeTone="mistake";
+    typeMsg=`틀린 문항 중 <b>표준 난도(2점) 문항 오답이 ${easyMiss}개</b>로, 고난도 오답(${hardMiss}개)보다 많습니다. 이는 실력보다 <b>실수·부주의 유형</b>에 가깝습니다. 맞힐 수 있었던 ${easyLost}점을 놓친 셈이라, 선지 근거 재확인·검토 습관만으로 빠르게 점수를 올릴 수 있습니다.`;
+  } else if(hardMiss>easyMiss){
+    typeTone="ability";
+    typeMsg=`틀린 문항 중 <b>고난도(3점) 문항 오답이 ${hardMiss}개</b>로 더 많습니다. 기본기는 갖췄으나 <b>변별력 문항 대응력</b>이 부족한 유형입니다. 오답 노트로 고난도 문항의 함정 선지 원리를 집중 분석하세요.`;
+  } else {
+    typeMsg=`표준 난도 오답(${easyMiss}개)과 고난도 오답(${hardMiss}개)이 비슷합니다. 실수 교정과 고난도 훈련을 <b>병행</b>해야 합니다.`;
+  }
+
+  // ── 3) 시간 관리 분석 (미표기 + 뒤쪽 집중 오답) ──
+  const nUnmarked=wrongs.filter(d=>d.unmarked).length;
+  const backHalf=wrongs.filter(d=>d.q>totalQ*0.6);            // 뒤 40% 구간 오답
+  const backUnmarked=wrongs.filter(d=>d.unmarked && d.q>totalQ*0.6).length;
+  let timeMsg="", timeFlag=false;
+  if(nUnmarked===0 && backHalf.length<=Math.ceil(wrongs.length*0.5)){
+    timeMsg="미표기 없이 끝까지 응답했고 오답이 특정 구간에 몰리지 않습니다. 시간 관리는 양호합니다.";
+  } else if(nUnmarked>=2 && backUnmarked>=Math.ceil(nUnmarked*0.6)){
+    timeFlag=true;
+    timeMsg=`미표기 ${nUnmarked}문항 중 대부분이 <b>시험지 뒤쪽(${Math.round(totalQ*0.6)+1}번 이후)에 몰려</b> 있습니다. 전형적인 <b>시간 부족</b> 신호입니다. 앞부분 독서·문학에서 지문당 소요 시간을 줄이고, 어려운 문항은 넘어갔다 돌아오는 전략이 필요합니다.`;
+  } else if(nUnmarked>=1){
+    timeFlag=true;
+    timeMsg=`미표기 ${nUnmarked}문항이 있습니다. 찍더라도 빈칸은 남기지 않도록, 종료 5분 전 미표기 문항부터 채우는 습관을 들이세요.`;
+  } else if(backHalf.length>=Math.ceil(wrongs.length*0.65) && wrongs.length>=3){
+    timeFlag=true;
+    timeMsg=`오답의 ${Math.round(backHalf.length/wrongs.length*100)}%가 시험지 <b>뒤쪽 구간에 집중</b>되어 있습니다. 후반부 집중력 저하나 시간 압박이 의심되니, 실전에서 뒷부분을 먼저 푸는 연습도 시도해 보세요.`;
+  } else {
+    timeMsg="오답 분포가 고르게 퍼져 있어 시간 관리 문제보다는 영역별 실력 편차로 보입니다.";
+  }
+
+  // ── 4) 등급컷까지 구체적 학습량 ──
+  let goalText="", planText="";
+  if (g.real && g.grade > 1 && g.cuts) {
+    const nextCut=g.cuts[g.grade-2];
+    const gap=nextCut-r.rawScore;
+    if(gap>0){
+      // 취약 영역부터 몇 문항 회복하면 되는지 (평균 2.5점 가정)
+      const qNeed=Math.max(1,Math.ceil(gap/2.5));
+      goalText=`<div style="background:var(--correct-bg);color:var(--correct);padding:12px;border-radius:10px;font-weight:800;margin-bottom:14px;font-size:13.5px;display:flex;align-items:center;gap:8px;">
+        <span>🎯</span><span>다음 ${g.grade-1}등급 컷(${nextCut}점)까지 ${gap}점 — 약 ${qNeed}문항 회복이면 등급 상승</span></div>`;
+      // 취약 영역에 회복 문항을 배분
+      const targets=areaRank.filter(a=>a.wrong>0).slice(0,3);
+      let remain=qNeed; const alloc=[];
+      for(const t of targets){ if(remain<=0)break; const take=Math.min(t.wrong,Math.ceil(remain/(targets.length))); if(take>0){alloc.push(`${t.name} ${take}문항`);remain-=take;} }
+      if(alloc.length) planText=`<p style="font-size:12px;color:var(--ink);line-height:1.6;margin-top:8px;">실행 목표: <b>${alloc.join(" · ")}</b>을 다음 시험에서 회복하는 것을 1차 목표로 삼으세요.</p>`;
+    } else {
+      goalText=`<div style="background:var(--correct-bg);color:var(--correct);padding:12px;border-radius:10px;font-weight:800;margin-bottom:14px;font-size:13.5px;">✅ 현재 ${g.grade}등급을 안정적으로 확보한 점수입니다.</div>`;
+    }
+  }
+
+  // ── 영역별 맞춤 조언 (약점 상위 2개) ──
+  const areaAdviceMap={
+    "독서":"비문학은 지문 구조(도입-전개-핵심)를 먼저 잡고, 문단별 중심문장에 표시하며 정보의 위치를 기억하는 훈련이 효과적입니다. 특히 <보기> 적용 문제는 지문 원리를 사례에 대입하는 연습을 반복하세요.",
+    "문학":"작품 갈래별 필수 개념어(화자의 정서·태도, 서술 시점, 표현 기법)를 정리하고, <보기>에서 준 감상 관점을 작품에 대입해 선지 진위를 판별하는 훈련을 하세요.",
+    "문법":"음운 변동·품사·문장 성분·중세 국어 등 필수 문법 개념을 예시와 함께 암기하고, 지문형 문법(35~36번 유형)은 지문 원리를 <보기> 사례에 적용하는 훈련을 하세요.",
+    "화작":"화법·작문은 출제 패턴이 정형화돼 있습니다. 발표·토론·고쳐쓰기 유형의 오답 선지가 만들어지는 원리를 기출 분석으로 체화하세요.",
+    "매체":"매체는 뉴스·포스터·실시간 방송 등 자료의 정보 구성 방식과 수용자의 능동적 반응을 묻습니다. 매체 자료의 생산·수용 맥락과 언어 요소(종결·높임·보조사 등)의 기능을 함께 표시하며 기출을 훈련하세요."
+  };
+  const top2=areaRank.filter(a=>a.wrong>0).slice(0,2);
+  const areaBlocks=top2.map((a,i)=>`
+    <div style="margin-top:${i?12:0}px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <span class="n" style="background:${i===0?'var(--wrong)':'var(--navy-soft)'};width:18px;height:18px;">${i+1}</span>
+        <b style="font-size:13px;color:${i===0?'var(--wrong)':'var(--navy)'}">${a.name} · 정답률 ${a.pct}% (${a.total-a.wrong}/${a.total})</b>
+      </div>
+      <p style="font-size:12px;color:var(--ink);line-height:1.6;background:var(--paper);padding:11px;border-radius:9px;margin:0">${areaAdviceMap[a.area]||"오답 노트로 틀린 이유를 유형별로 정리하세요."}</p>
+    </div>`).join("");
+
+  return `
+    <div class="section-title">AI 맞춤 학습 분석</div>
+    <div class="card" style="margin-bottom:16px; border:1.5px solid var(--navy);">
+      ${goalText}${planText?`<div style="margin-bottom:14px">${planText}</div>`:""}
+
+      <h4 style="font-size:13.5px;font-weight:800;margin:2px 0 8px;color:var(--navy);display:flex;align-items:center;gap:6px;">
+        <span class="n" style="background:var(--blue);width:18px;height:18px;">A</span> 오답 유형 진단 (실수 vs 실력)
+      </h4>
+      <p style="font-size:12.5px;color:var(--ink);line-height:1.6;margin:0 0 16px;background:${typeTone==='mistake'?'var(--wrong-bg)':'var(--paper)'};padding:12px;border-radius:10px;">${typeMsg}</p>
+
+      <h4 style="font-size:13.5px;font-weight:800;margin:0 0 8px;color:var(--navy);display:flex;align-items:center;gap:6px;">
+        <span class="n" style="background:${timeFlag?'var(--wrong)':'var(--correct)'};width:18px;height:18px;">B</span> 시간 관리 분석
+      </h4>
+      <p style="font-size:12.5px;color:var(--ink);line-height:1.6;margin:0 0 16px;background:${timeFlag?'var(--wrong-bg)':'var(--correct-bg)'};padding:12px;border-radius:10px;">${timeMsg}</p>
+
+      <h4 style="font-size:13.5px;font-weight:800;margin:0 0 8px;color:var(--navy);display:flex;align-items:center;gap:6px;">
+        <span class="n" style="background:var(--navy);width:18px;height:18px;">C</span> 영역별 보완 우선순위
+      </h4>
+      ${areaBlocks||'<p style="font-size:12.5px;color:var(--ink);background:var(--correct-bg);padding:12px;border-radius:10px;margin:0">모든 영역이 고르게 우수합니다. 현재 수준을 유지하세요.</p>'}
+    </div>
+  `;
+}
+function renderResult(r){
+  const pct=Math.round(r.rawScore/r.totalPoints*100);
+  const g=computeGrade(r), gr=g.grade;
+  const R=68,C=2*Math.PI*R,off=C*(1-pct/100);
+  let gradeLabel, gapNote="";
+  if(g.real){
+    gradeLabel=`${gr}등급 · ${pct}%`;
+    if(gr>1){
+      const nextCut=g.cuts[gr-2], gap=nextCut-r.rawScore;
+      gapNote=`<div class="score-note">${gr-1}등급까지 ${gap}점 남음 (원점수 ${nextCut}점)</div>`;
+    } else {
+      gapNote=`<div class="score-note">최고 등급입니다</div>`;
+    }
+  } else {
+    gradeLabel=`추정 ${gr}등급 · ${pct}%`;
+    gapNote=`<div class="score-note">이 회차는 등급컷 데이터가 없어 백분율 기준 추정치입니다</div>`;
+  }
+  const areaBars=Object.entries(r.areaStat).map(([a,s])=>{const p=Math.round(s.correct/s.total*100);const cls=p<50?"low":p<75?"mid":"";return `<div class="bar-row"><div class="lab">${AREA_FULL[a]||a}</div><div class="track"><div class="fill ${cls}" style="width:${p}%"></div></div><div class="pct">${p}<span>%</span> <span style="font-size:10px">${s.correct}/${s.total}</span></div></div>`;}).join("");
+  const diffBars=DIFF.filter(d=>r.diffStat[d].total>0).map(d=>{const s=r.diffStat[d];const p=Math.round(s.correct/s.total*100);const cls=p<50?"low":p<75?"mid":"";return `<div class="bar-row"><div class="lab">난이도 ${d}</div><div class="track"><div class="fill ${cls}" style="width:${p}%"></div></div><div class="pct">${p}<span>%</span> <span style="font-size:10px">${s.correct}/${s.total}</span></div></div>`;}).join("");
+  const wrongs=r.detail.filter(d=>d.st==="wrong");
+  const wrongChips=wrongs.length?wrongs.map(d=>`<div class="wrong-chip${d.unmarked?" blank":""}"><div class="qn">${d.q}</div><div class="det">정답 ${d.ans} · ${d.unmarked?"미표기":"표기 "+d.given}</div></div>`).join(""):`<div class="hint" style="margin:0">틀린 문항이 없습니다.</div>`;
+  const unmarkedNote=r.unmarked?`<div class="score-note">미표기 ${r.unmarked}문항은 오답(0점)으로 처리됨</div>`:"";
+  // 문항별 O/X 그리드: 정답=O, 오답=X(내 표기 병기), 미표기=X(무표기)
+  const oxCells=r.detail.map(d=>{
+    const cls=d.st==="correct"?"correct":(d.unmarked?"blank":"wrong");
+    const mark=d.st==="correct"?"O":"X";
+    const sub=d.st==="correct"?`정답 ${d.ans}`:(d.unmarked?`무표기·답 ${d.ans}`:`${d.given}→${d.ans}`);
+    return `<div class="ox-cell ${cls}"><span class="oq">${d.q}</span><span class="om">${mark}</span><span class="od">${sub}</span></div>`;
+  }).join("");
+  const oxGridHTML=`<div class="card" style="margin-bottom:16px"><div class="ox-grid">${oxCells}</div>
+    <div class="ox-legend"><span><b class="lo">O</b> 정답</span><span><b class="lx">X</b> 오답 (내 표기→정답)</span><span><b class="lb">X</b> 미표기</span></div></div>`;
+  const hexSvg=buildHexChart(r);
+  const hexHTML=hexSvg?`<div class="section-title">성취 프로필</div><div class="card" style="margin-bottom:16px;padding:18px 10px 10px">${hexSvg}</div>`:"";
+  const learningReportHTML = generateLearningReport(r, g);
+  document.getElementById("resultBody").innerHTML=`
+    <div class="scorehero">
+      <div class="exam-label">${r.exam}</div>
+      <div class="stu-edit"><input id="stuNameEdit" type="text" value="${(r.student||"").replace(/"/g,"&quot;")}" placeholder="학생 이름 입력 (성적표·발송에 반영)"></div>
+      <div class="ring-wrap"><svg width="150" height="150">
+        <circle cx="75" cy="75" r="${R}" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="11"/>
+        <circle cx="75" cy="75" r="${R}" fill="none" stroke="#8FE6C0" stroke-width="11" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}" id="ringFill"/></svg>
+        <div class="ring-center"><div class="raw">${r.rawScore}<span>/${r.totalPoints}</span></div><div class="grade${g.real?" real":""}">${gradeLabel}</div></div>
+      </div>
+      <div class="score-sub"><div><div class="v ok">${r.correct}</div><div class="k">정답</div></div><div><div class="v no">${r.wrong}</div><div class="k">오답</div></div></div>
+      ${gapNote}${unmarkedNote}
+    </div>
+    <div class="section-title">문항별 채점 결과 (O/X)</div>
+    ${oxGridHTML}
+    ${hexHTML}
+    <div class="section-title">영역별 성취도</div>
+    <div class="card" style="margin-bottom:16px">${areaBars||'<div class="hint" style="margin:0">문항별 영역을 지정하면 분석됩니다.</div>'}</div>
+    <div class="section-title">난이도별 성취도</div>
+    <div class="card" style="margin-bottom:16px">${diffBars}</div>
+    <div class="section-title">오답 리포트 (${wrongs.length})</div>
+    ${buildWrongReport(r)}
+    <div style="height:12px"></div>
+    ${learningReportHTML}
+    <div class="btn-row"><button class="btn alt" id="shareBtn">요약 복사</button><button class="btn" id="saveBtn">기록에 저장</button></div>
+    <button class="btn" id="sendReportBtn" style="margin-top:10px; background:#2563EB; border:none; box-shadow:0 4px 14px rgba(37,99,235,.35);">💬 학부모/학생에게 리포트 발송</button>
+    <div class="btn-row" style="margin-top:8px"><button class="btn alt" id="sendFileBtn">📤 성적표 발송</button><button class="btn alt" id="sendImgBtn">🖼️ 이미지 저장</button></div>
+    <button class="btn" id="pdfBtn" style="margin-top:8px;background:var(--navy);border:none">📄 PDF로 내보내기</button>
+    <button class="btn ghost" id="regradeBtn" style="margin-top:4px">답안 다시 입력</button>`;
+  requestAnimationFrame(()=>{const f=document.getElementById("ringFill");f.style.transition="stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)";f.style.strokeDashoffset=off;});
+  document.getElementById("shareBtn").onclick=()=>shareResult(r,pct,gr);
+  document.getElementById("saveBtn").onclick=()=>{saveHistory(r,pct,gr);window._lastResult.saved=true;toast("기록에 저장했습니다");};
+  document.getElementById("regradeBtn").onclick=()=>go("scan");
+  document.getElementById("sendReportBtn").onclick=()=>sendFullReport(r,g,pct);
+  document.getElementById("sendFileBtn").onclick=()=>sendResultFile(r,g,pct,gr);
+  document.getElementById("sendImgBtn").onclick=()=>sendResultImage(r,g,pct,gr);
+  document.getElementById("pdfBtn").onclick=()=>exportResultPdf(r,g,pct,gr);
+  // 결과 화면 이름 인라인 편집: 어느 시점에 입력해도 저장·발송·PDF에 즉시 반영
+  const stuIn=document.getElementById("stuNameEdit");
+  stuIn.onchange=()=>{
+    r.student=stuIn.value.trim();
+    document.getElementById("studentName").value=r.student;   // 채점 화면 필드와 동기화
+    window._lastResult={r,pct,gr};
+    toast(r.student?`학생 이름 반영: ${r.student}`:"학생 이름을 지웠습니다");
+  };
+  window._lastResult={r,pct,gr};
+}
+/* ---------- 학부모/학생 발송용 풀 리포트 ---------- */
+function sendFullReport(r, g, pct) {
+  let weakestArea = "";
+  let minPct = 101;
+  for (const [area, stat] of Object.entries(r.areaStat)) {
+    if (stat.total > 0 && (stat.correct/stat.total*100) < minPct) {
+      minPct = Math.round(stat.correct/stat.total*100); weakestArea = area;
+    }
+  }
+  const nextCutText = (g.real && g.grade > 1 && g.cuts) ? `\n🎯 다음 등급(${g.grade - 1}등급)까지 단 ${g.cuts[g.grade - 2] - r.rawScore}점 남았습니다!` : "";
+  const text = `[서로국어논술 AI 학습 분석 리포트]
+학생: ${r.student || "미입력"}
+시험: ${r.exam}
+
+📊 성적 요약
+- 점수: ${r.rawScore}점 / ${r.totalPoints}점
+- 등급: ${g.grade}등급${g.real ? "" : "(추정)"}${nextCutText}
+
+🚨 취약 영역 진단
+가장 오답이 많은 영역은 [${AREA_FULL[weakestArea] || weakestArea}] 입니다. (정답률 ${minPct}%)
+해당 영역의 집중 보완이 필요합니다.
+
+💡 선생님 코멘트 (등급 맞춤 전략)
+${g.grade <= 2 ? "최상위권 유지를 위해 고난도 문항의 근거를 찾는 훈련을 하세요." : g.grade <= 4 ? "시간 관리와 독해 속도 향상이 필수입니다. 지문 속 명확한 근거 찾기 연습에 집중하세요." : "기본 개념과 어휘력이 부족합니다. 매일 꾸준히 짧은 지문을 요약하고 개념어를 복습하세요."}
+
+틀린 문항 번호: ${r.detail.filter(d=>d.st==="wrong").map(d=>d.q).join(", ") || "없음"}
+자세한 오답 풀이는 학원에서 개별 지도합니다.`;
+  if(navigator.share) {
+    navigator.share({title: "학습 분석 리포트", text: text}).catch(()=>copy(text));
+  } else {
+    copy(text);
+    toast("리포트 텍스트가 복사되었습니다. 카카오톡에 붙여넣기 하세요.");
+  }
+}
+/* ---------- 결과 링크(데이터링크) & 이미지 발송 ---------- */
+/* 서버 없이 성적표를 공유하기 위해, 성적표 전체를 자체 포함한 독립 HTML을 만들어
+   data:text/html;base64 URL로 인코딩한다. 받는 사람이 브라우저로 열면 그대로 렌더링된다.
+   (외부 서버·저장소가 필요 없고, 링크 안에 데이터가 통째로 들어 있는 방식) */
+function buildReportPage(r, g, pct, gr, forPrint=false){
+  const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const gradeTxt = g.real ? `${gr}등급` : `추정 ${gr}등급`;
+  const wrongs=r.detail.filter(d=>d.st==="wrong");
+  const areaRows=Object.entries(r.areaStat).map(([a,s])=>{
+    const p=Math.round(s.correct/s.total*100); const cls=p<50?"low":p<75?"mid":"good";
+    return `<div class="bar"><span class="bl">${esc(AREA_FULL[a]||a)}</span><span class="bt"><i class="${cls}" style="width:${p}%"></i></span><span class="bp">${p}% <em>${s.correct}/${s.total}</em></span></div>`;
+  }).join("");
+  // 문항별 O/X 그리드 (결과 화면과 동일 규칙: 정답 O / 오답 X(표기→정답) / 미표기 X)
+  const oxCells=r.detail.map(d=>{
+    const cls=d.st==="correct"?"correct":(d.unmarked?"blank":"wrong");
+    const mark=d.st==="correct"?"O":"X";
+    const sub=d.st==="correct"?`정답 ${d.ans}`:(d.unmarked?`무표기·답 ${d.ans}`:`${d.given}→${d.ans}`);
+    return `<div class="oxc ${cls}"><span class="oq">${d.q}</span><span class="om">${mark}</span><span class="od">${sub}</span></div>`;
+  }).join("");
+  // AI 학습 리포트 본문(HTML)을 재사용
+  const reportInner = generateLearningReport(r, g);
+  const genTime = new Date().toLocaleString("ko-KR");
+  // 독립 실행용 최소 스타일(앱과 무관하게 단독 렌더링)
+  return `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(r.exam)} 성적표${r.student?" · "+esc(r.student):""}</title>
+<style>
+:root{--ink:#1a2b3c;--sub:#5b6b7b;--line:#e3e9ef;--brand:#0E7A55;--paper:#F6F5F0;
+--navy:#132A5C;--blue:#2563EB;--correct:#0E7A55;--wrong:#C0392B}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;background:var(--paper);color:var(--ink);line-height:1.55}
+.wrap{max-width:560px;margin:0 auto;padding:20px 16px 60px}
+.hero{background:linear-gradient(135deg,#0E7A55,#0a5e42);color:#fff;border-radius:20px;padding:26px 22px;text-align:center;box-shadow:0 8px 26px rgba(14,122,85,.25)}
+.hero .exam{font-size:14px;opacity:.9;margin-bottom:14px}
+.hero .score{font-size:46px;font-weight:800;letter-spacing:-1px}.hero .score span{font-size:20px;opacity:.8;font-weight:600}
+.hero .grade{display:inline-block;margin-top:8px;background:rgba(255,255,255,.18);padding:5px 16px;border-radius:20px;font-weight:700;font-size:15px}
+.hero .sub{margin-top:14px;display:flex;justify-content:center;gap:26px}
+.hero .sub b{font-size:22px;display:block}.hero .sub small{opacity:.85;font-size:12px}
+.sect{margin:24px 4px 10px;font-weight:800;font-size:15px;color:var(--ink)}
+.section-title{margin:24px 4px 10px;font-weight:800;font-size:15px;color:var(--ink)}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px}
+.hint{color:var(--sub);font-size:13px}
+.n{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-size:11px;font-weight:800;flex:none}
+.bar{display:flex;align-items:center;gap:10px;margin:9px 0}.bar .bl{width:74px;font-size:13px;color:var(--sub);flex:none}
+.bar .bt{flex:1;height:9px;background:#eef2f6;border-radius:6px;overflow:hidden}.bar .bt i{display:block;height:100%;border-radius:6px;background:var(--brand)}
+.bar .bt i.mid{background:#E0A81E}.bar .bt i.low{background:#D2544B}.bar .bp{width:78px;text-align:right;font-size:12px;font-weight:700}.bar .bp em{color:var(--sub);font-weight:500;font-style:normal;font-size:11px}
+table{width:100%;border-collapse:collapse;font-size:14px}td{padding:9px 8px;border-bottom:1px solid var(--line)}td.qn{font-weight:700;width:64px}.blank{color:#D2544B;font-weight:600}.none{text-align:center;color:var(--sub);padding:18px}
+.wr-card{padding:14px}
+.wr-summary{display:flex;gap:8px;margin-bottom:14px}
+.wr-summary .wr-s{flex:1;text-align:center;background:var(--paper);border-radius:11px;padding:9px 4px}
+.wr-summary .wr-s b{display:block;font-size:20px;font-weight:800;color:var(--ink)}
+.wr-summary .wr-s small{font-size:11px;color:#6b7684}
+.wr-group{margin-top:12px}
+.wr-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.wr-area{font-weight:800;font-size:13.5px;color:var(--navy)}
+.wr-cnt{font-size:11.5px;color:#6b7684;background:var(--paper);padding:2px 9px;border-radius:20px;font-weight:600}
+.wr-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px}
+.wr-q{font-size:17px;font-weight:800;color:var(--ink);min-width:38px}.wr-q small{font-size:11px;font-weight:600;color:#8a94a0}
+.wr-mid{flex:1;font-size:13px;color:var(--ink)}
+.wr-tag{display:inline-block;font-size:11px;padding:1.5px 8px;border-radius:20px;background:#eef2f6;color:#4a5763;margin-left:4px;font-weight:600}
+.wr-tag.blank{background:#fde8e6;color:var(--wrong)}
+.wr-diff{display:inline-block;font-size:11px;padding:1.5px 8px;border-radius:20px;background:#fff4e0;color:#b5820e;margin-left:4px;font-weight:600}
+.wr-pt{font-size:12px;font-weight:700;color:#8a94a0}
+.foot{margin-top:26px;text-align:center;color:var(--sub);font-size:12px}
+.oxgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.oxc{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px 4px;border-radius:8px;border:1px solid var(--line);background:#fafbfc}
+.oxc .oq{font-size:10px;font-weight:700;color:var(--sub)}
+.oxc .om{font-size:15px;font-weight:900;line-height:1.1}
+.oxc .od{font-size:8.5px;color:var(--sub);letter-spacing:-.3px}
+.oxc.correct .om{color:#1d9e6f}
+.oxc.wrong{background:#fdf1f1;border-color:#f3cdcd}.oxc.wrong .om{color:#C0392B}
+.oxc.blank{background:#fbf6ea;border-color:#ead9b0}.oxc.blank .om{color:#b98a1e}
+/* PDF 새 창 하단 액션바(화면 전용 — 인쇄물에는 나오지 않음) */
+.pdfbar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid #e3e9ef;z-index:99}
+.pdfbar button{flex:1;border:none;border-radius:11px;font-weight:800;font-size:14px;padding:12px 6px;cursor:pointer;font-family:inherit}
+.pdfbar .pb-close{background:#eef2f6;color:#1a2b3c}
+.pdfbar .pb-print{background:#eef2f6;color:#1a2b3c}
+.pdfbar .pb-next{background:#0E7A55;color:#fff}
+body.haspdfbar{padding-bottom:86px}
+@media print{
+  .pdfbar{display:none}
+  html,body{height:auto;overflow:visible}
+  body{background:#fff}
+  .wrap{max-width:none;padding:0}
+  .hero{box-shadow:none;border-radius:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* 긴 카드(오답 리포트·AI 분석)는 페이지를 넘어갈 수 있어야 하므로 나눔을 막지 않는다.
+     한 페이지보다 긴 요소에 break-inside:avoid를 걸면 브라우저에 따라 내용이 잘린다. */
+  .card,.wr-card{break-inside:auto}
+  .oxc,.wr-row,.bar{break-inside:avoid}   /* 작은 단위만 행 단위로 보호 */
+  .sect{break-after:avoid}
+  .oxgrid{grid-template-columns:repeat(9,1fr)}
+  .foot{margin-top:14px}
+}
+@page{size:A4;margin:14mm 12mm}
+</style></head><body><div class="wrap">
+<div class="hero">
+  <div class="exam">${esc(r.exam)}${r.student?" · "+esc(r.student):""}</div>
+  <div class="score">${r.rawScore}<span>/${r.totalPoints}점</span></div>
+  <div class="grade">${gradeTxt} · ${pct}%</div>
+  <div class="sub"><div><b>${r.correct}</b><small>정답</small></div><div><b>${r.wrong}</b><small>오답</small></div>${r.unmarked?`<div><b>${r.unmarked}</b><small>미표기</small></div>`:""}</div>
+</div>
+<div class="sect">문항별 채점 결과 (O/X)</div><div class="card"><div class="oxgrid">${oxCells}</div></div>
+${(()=>{const hx=buildHexChart(r);return hx?`<div class="sect">성취 프로필</div><div class="card" style="padding:18px 10px 10px">${hx}</div>`:"";})()}
+${areaRows?`<div class="sect">영역별 성취도</div><div class="card">${areaRows}</div>`:""}
+<div class="sect">오답 리포트 (${wrongs.length})</div>
+${buildWrongReport(r)}
+<div class="sect">AI 학습 분석</div>
+${reportInner}
+<div class="foot">서로국어논술 OMR 채점기 · ${esc(genTime)} 생성<br>이 성적표는 발송 시점의 데이터로 만들어진 정적 페이지입니다.</div>
+</div>${forPrint?`<div class="pdfbar">
+  <button class="pb-close" onclick="window.close()">✕ 닫기</button>
+  <button class="pb-print" onclick="window.print()">🖨️ 다시 인쇄</button>
+  <button class="pb-next" onclick="try{if(window.opener&&!window.opener.closed)window.opener.postMessage({type:'seoro-next-student'},'*')}catch(e){};window.close()">➕ 다음 학생 채점</button>
+</div><script>document.body.classList.add('haspdfbar')<\/script>`:""}
+</body></html>`;
+}
+/* 성적표 파일(HTML) 발송.
+   [설계 변경 이유] 종전의 data:URL "링크 발송"은 카카오톡·문자에서 data: 스킴이
+   하이퍼링크로 활성화되지 않아(눌리지 않음) 수신자가 열 수 없었고, 데스크톱에서는
+   await 이후의 window.open이 팝업 차단에 걸려 아무 반응이 없는 것처럼 보였다.
+   → 단독 실행되는 성적표 .html 파일을 공유시트(모바일)/다운로드(데스크톱)로 전달한다. */
+async function sendResultFile(r, g, pct, gr){
+  // 발송물 = PNG 성적표 이미지(육각 프로필·O/X·영역별 포함).
+  // HTML 파일은 메신저 수신 측에서 열리지 않는 사례가 많아 이미지로 통일했다.
+  const {blob,file}=await resultPngFile(r,g,pct,gr);
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:`${r.exam} 성적표`}); return; }
+    catch(e){ if(e && e.name==="AbortError") return; }
+  }
+  // 공유시트 불가(데스크톱): 즉시 다운로드
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast("성적표 이미지를 내려받았습니다. 카카오톡 대화창에 파일을 끌어다 놓으면 전송됩니다. 문서 전체가 필요하면 ‘PDF로 내보내기’를 이용하세요.");
+}
+/* PDF 내보내기: 인쇄 최적화 성적표를 새 창에 열어 인쇄 다이얼로그를 띄운다.
+   [수정 이력] 종전의 0×0 숨김 iframe 인쇄는 일부 브라우저가 iframe 뷰포트 크기만큼만
+   렌더해 성적표가 첫 화면 분량에서 잘리는 문제가 있었다. 클릭 핸들러 안에서 동기로
+   window.open을 호출하면 팝업 차단에 걸리지 않으므로 새 창(최상위 문서) 인쇄가 기본이며,
+   그래도 창이 막힌 환경만 실크기(A4) 오프스크린 iframe으로 폴백한다. */
+function exportResultPdf(r, g, pct, gr){
+  const htmlDoc=buildReportPage(r,g,pct,gr,true);
+  const w=window.open("","_blank");
+  if(w){
+    w.document.open(); w.document.write(htmlDoc); w.document.close();
+    const doPrint=()=>{ try{ w.focus(); w.print(); }catch(_){} };
+    if(w.document.readyState==="complete") setTimeout(doPrint,200);
+    else w.addEventListener("load",()=>setTimeout(doPrint,200));
+    toast("인쇄 창에서 대상: ‘PDF로 저장’을 선택하세요");
+    return;
+  }
+  // 팝업 차단 폴백: 화면 밖 실크기 iframe (0×0·visibility:hidden 금지 — 렌더가 잘린다)
+  let fr=document.getElementById("pdfFrame");
+  if(fr) fr.remove();
+  fr=document.createElement("iframe");
+  fr.id="pdfFrame";
+  fr.style.cssText="position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0";
+  document.body.appendChild(fr);
+  fr.onload=()=>{
+    try{ fr.contentWindow.focus(); fr.contentWindow.print();
+         toast("인쇄 창에서 대상: ‘PDF로 저장’을 선택하세요"); }
+    catch(e){ toast("PDF 내보내기에 실패했습니다. 브라우저 팝업 허용 후 다시 시도하세요."); }
+  };
+  fr.srcdoc=htmlDoc;
+}
+/* 성적표를 이미지(PNG)로 저장/공유: 요약 정보를 canvas에 직접 그린다(외부 라이브러리 불필요). */
+/* 성적표 캔버스(공유·저장 공용): 헤더 + 육각 성취 프로필 + 영역별 + O/X 그리드 + 오답 문항.
+   [수정 이력] 종전 "파일 발송"은 .html 파일을 공유했는데, 카카오톡 등 메신저 수신 측에서
+   HTML 파일이 열리지 않는(기본 앱 없음/인앱 뷰어 거부) 문제가 있었다. 발송물을
+   어디서나 열리는 PNG 이미지로 통일하고, 이미지에 전체 리포트 요소를 담는다. */
+async function buildResultCanvas(r, g, pct, gr){
+  const W=720, pad=44; const wrongs=r.detail.filter(d=>d.st==="wrong");
+  const areas=Object.entries(r.areaStat);
+  const hexSvg=buildHexChart(r,{size:300});
+  const hexH=hexSvg?370:0;
+  const oxRows=Math.ceil(r.detail.length/9);
+  const oxH=34+oxRows*42+14;
+  const H=pad*2 + 250 + hexH + (areas.length?40+areas.length*30:0) + oxH + 60 + Math.ceil((wrongs.length||1)/4)*44 + 60;
+  const cv=document.createElement("canvas"); const sc=2; cv.width=W*sc; cv.height=H*sc;
+  const x=cv.getContext("2d"); x.scale(sc,sc); x.textBaseline="top";
+  x.fillStyle="#f7f9fb"; x.fillRect(0,0,W,H);
+  const g1=x.createLinearGradient(0,0,W,220); g1.addColorStop(0,"#0E7A55"); g1.addColorStop(1,"#0a5e42");
+  x.fillStyle=g1; roundRect(x,pad,pad,W-pad*2,210,20); x.fill();
+  x.fillStyle="rgba(255,255,255,.9)"; x.font="600 15px sans-serif"; x.textAlign="center";
+  x.fillText(`${r.exam}${r.student?" · "+r.student:""}`, W/2, pad+24);
+  x.fillStyle="#fff"; x.font="800 52px sans-serif";
+  x.fillText(`${r.rawScore}`, W/2-18, pad+52); x.font="600 22px sans-serif"; x.fillStyle="rgba(255,255,255,.8)";
+  x.textAlign="left"; x.fillText(`/${r.totalPoints}점`, W/2+ (String(r.rawScore).length*15), pad+82);
+  x.textAlign="center"; x.fillStyle="#fff"; x.font="700 17px sans-serif";
+  x.fillText(`${g.real?gr+"등급":"추정 "+gr+"등급"} · ${pct}%`, W/2, pad+120);
+  x.font="700 20px sans-serif";
+  x.fillText(`정답 ${r.correct}      오답 ${r.wrong}${r.unmarked?`      미표기 ${r.unmarked}`:""}`, W/2, pad+160);
+  let cy=pad+250;
+  x.textAlign="left";
+  // 성취 프로필(육각) — SVG를 이미지로 래스터화해 삽입. 실패해도 전체 생성은 계속(레이아웃 유지)
+  if(hexSvg){
+    x.fillStyle="#1a2b3c"; x.font="800 16px sans-serif"; x.fillText("성취 프로필", pad, cy);
+    try{
+      const img=new Image();
+      // Firefox는 width/height 속성 없는 SVG를 캔버스에 0×0으로 래스터화한다(viewBox만으론 불충분).
+      const sized=hexSvg.replace("<svg ", `<svg width="332" height="300" `);
+      const url="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(sized);
+      await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=url;});
+      const hw=330, hh=hw*300/332;
+      x.drawImage(img,(W-hw)/2,cy+26,hw,hh);
+    }catch(e){ x.fillStyle="#8a99a8"; x.font="12px sans-serif"; x.fillText("(그래프는 앱·PDF에서 확인)", pad+110, cy+2); }
+    cy+=hexH;
+  }
+  if(areas.length){
+    x.fillStyle="#1a2b3c"; x.font="800 16px sans-serif"; x.fillText("영역별 성취도", pad, cy); cy+=32;
+    for(const [a,st] of areas){
+      const p=Math.round(st.correct/st.total*100);
+      x.fillStyle="#5b6b7b"; x.font="13px sans-serif"; x.fillText(AREA_FULL[a]||a, pad, cy+2);
+      x.fillStyle="#eef2f6"; roundRect(x,pad+90,cy,W-pad*2-180,10,5); x.fill();
+      x.fillStyle=p<50?"#D2544B":p<75?"#E0A81E":"#0E7A55"; roundRect(x,pad+90,cy,(W-pad*2-180)*p/100,10,5); x.fill();
+      x.fillStyle="#1a2b3c"; x.font="700 12px sans-serif"; x.textAlign="right";
+      x.fillText(`${p}%  ${st.correct}/${st.total}`, W-pad, cy); x.textAlign="left"; cy+=30;
+    }
+    cy+=10;
+  }
+  // 문항별 O/X 그리드 (9열)
+  x.fillStyle="#1a2b3c"; x.font="800 16px sans-serif"; x.fillText("문항별 채점 결과 (O/X)", pad, cy); cy+=30;
+  {
+    const cols=9, cw=(W-pad*2)/cols-6;
+    let col=0;
+    for(const d of r.detail){
+      const bx=pad+col*((W-pad*2)/cols);
+      const wrong=d.st!=="correct";
+      x.fillStyle=d.st==="correct"?"#fff":(d.unmarked?"#fbf6ea":"#fdf1f1");
+      x.strokeStyle=d.st==="correct"?"#e3e9ef":(d.unmarked?"#ead9b0":"#f3cdcd");
+      roundRect(x,bx,cy,cw,36,8); x.fill(); x.stroke();
+      x.font="700 10px sans-serif"; x.fillStyle="#8a99a8"; x.textAlign="left";
+      x.fillText(String(d.q), bx+5, cy+4);
+      x.font="900 16px sans-serif"; x.textAlign="center";
+      x.fillStyle=d.st==="correct"?"#1d9e6f":(d.unmarked?"#b98a1e":"#C0392B");
+      x.fillText(d.st==="correct"?"O":"X", bx+cw/2, cy+12);
+      x.textAlign="left";
+      col++; if(col===cols){col=0; cy+=42;}
+    }
+    if(col!==0) cy+=42;
+    cy+=14;
+  }
+  x.fillStyle="#1a2b3c"; x.font="800 16px sans-serif"; x.fillText(`오답 문항 (${wrongs.length})`, pad, cy); cy+=30;
+  if(wrongs.length){
+    let col=0;
+    for(const d of wrongs){
+      const bx=pad+col*((W-pad*2)/4), bw=(W-pad*2)/4-8;
+      x.fillStyle=d.unmarked?"#fdecea":"#fff"; x.strokeStyle="#e3e9ef";
+      roundRect(x,bx,cy,bw,36,9); x.fill(); x.stroke();
+      x.fillStyle="#1a2b3c"; x.font="700 13px sans-serif"; x.textAlign="center";
+      x.fillText(`${d.q}번 → ${d.ans}`, bx+bw/2, cy+10); x.textAlign="left";
+      col++; if(col===4){col=0; cy+=44;}
+    }
+    if(col!==0) cy+=44;
+  } else { x.fillStyle="#5b6b7b"; x.font="14px sans-serif"; x.fillText("틀린 문항이 없습니다 👏", pad, cy); cy+=30; }
+  x.fillStyle="#8a99a8"; x.font="12px sans-serif"; x.textAlign="center";
+  x.fillText("서로국어논술 OMR 채점기", W/2, H-pad+4);
+  return cv;
+}
+async function resultPngFile(r,g,pct,gr){
+  const cv=await buildResultCanvas(r,g,pct,gr);
+  const blob=await new Promise(res=>cv.toBlob(res,"image/png"));
+  const fname=`성적표_${(r.student||"학생").replace(/[\\/:*?"<>|]/g,"_")}_${r.exam.replace(/[\\/:*?"<>|]/g,"_")}.png`;
+  return {blob, file:new File([blob],fname,{type:"image/png"})};
+}
+async function sendResultImage(r, g, pct, gr){
+  const {blob,file}=await resultPngFile(r,g,pct,gr);
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:"성적표"}); return; }catch(e){ if(e&&e.name==="AbortError") return; }
+  }
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=file.name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function shareResult(r,pct,gr){
+  const g=computeGrade(r);
+  const wrongs=r.detail.filter(d=>d.st==="wrong").map(d=>`${d.q}번(정답${d.ans}${d.unmarked?"·미표기":""})`).join(", ");
+  const areaTxt=Object.entries(r.areaStat).map(([a,s])=>`  ${AREA_FULL[a]||a}: ${s.correct}/${s.total} (${Math.round(s.correct/s.total*100)}%)`).join("\n");
+  const wrongLine=`정답 ${r.correct} / 오답 ${r.wrong}${r.unmarked?` (미표기 ${r.unmarked} 포함)`:""}`;
+  const gradeTxt=g.real?`${gr}등급`:`추정 ${gr}등급(등급컷 미등록)`;
+  const txt=`📋 ${r.exam}${r.student?` · ${r.student}`:""}\n응시일 ${r.date}\n\n원점수 ${r.rawScore}/${r.totalPoints}점 (${pct}%) · ${gradeTxt}\n${wrongLine}\n\n[영역별]\n${areaTxt}\n\n[오답] ${wrongs||"없음"}\n\n— 서로국어논술 OMR 채점기`;
+  if(navigator.share) navigator.share({title:r.exam,text:txt}).catch(()=>copy(txt)); else copy(txt);
+}
+function copy(t){navigator.clipboard.writeText(t).then(()=>toast("결과가 복사되었습니다")).catch(()=>toast("복사 실패"));}
+
+/* 채점 기록 영구 저장: 배포 환경에선 localStorage에 저장되어
+   새로고침·업데이트 후에도 유지. 저장 불가 환경(미리보기 등)에선 메모리로 폴백. */
+const HIST_KEY="seoro_omr_hist_v1";
+function loadHist(){ try{ const s=localStorage.getItem(HIST_KEY); return s?JSON.parse(s):[]; }catch(e){ return []; } }
+function persistHist(){ try{ localStorage.setItem(HIST_KEY, JSON.stringify(histMem)); }catch(e){} }
+let histMem=loadHist();
+function saveHistory(r,pct,gr){
+  const ex=EXAM_LIBRARY.find(e=>e.id===currentExamId);
+  const real=!!(ex && ex.cuts && r.totalPoints===100);
+  histMem.unshift({id:Date.now(),examId:currentExamId,order:ex?ex.order:99,
+    exam:r.exam,student:r.student,date:r.date,raw:r.rawScore,total:r.totalPoints,pct,grade:gr,gradeReal:real,
+    correct:r.correct,wrong:r.wrong,unmarked:r.unmarked});
+  persistHist(); renderHistory();
+}
+function renderHistory(){
+  const b=document.getElementById("histBody");
+  if(!histMem.length){b.innerHTML=`<div class="empty"><div class="ic">🗂️</div><p>저장된 채점 기록이 없습니다.<br>결과 화면에서 “기록에 저장”을 눌러보세요.</p></div>`;return;}
+  const trend=renderTrend();
+  const list=histMem.map(h=>`<div class="hist-item"><div class="hscore"><div class="num">${h.raw}</div><div class="of">/${h.total}</div></div>
+    <div class="hmeta"><div class="ht">${h.exam}${h.student?` · ${h.student}`:""}</div><div class="hd">${h.date} · 정답 ${h.correct}·오답 ${h.wrong}${h.unmarked?` (미표기 ${h.unmarked})`:""}</div></div>
+    <div class="hgrade">${h.grade}등급${h.gradeReal?"":"<small>(추정)</small>"}</div><button class="hist-del" data-del="${h.id}">✕</button></div>`).join("");
+  b.innerHTML=trend+`<div class="section-title">전체 기록 (${histMem.length})</div>`+list;
+  b.querySelectorAll("[data-del]").forEach(x=>x.onclick=()=>{histMem=histMem.filter(h=>h.id!=x.dataset.del);persistHist();renderHistory();});
+}
+/* 연간 성적 추이: 학생별로 회차 순서대로 원점수(%) 선 그래프 */
+function renderTrend(){
+  // 학생명 있는 기록만, 회차(order) 있는 것만
+  const named=histMem.filter(h=>h.student && h.order<99);
+  if(!named.length) return "";
+  const byStudent={};
+  named.forEach(h=>{(byStudent[h.student]??=(byStudent[h.student]=[])).push(h);});
+  // 2회차 이상 응시한 학생만 추이 표시
+  const students=Object.keys(byStudent).filter(s=>{
+    const orders=new Set(byStudent[s].map(h=>h.order)); return orders.size>=2;
+  });
+  if(!students.length){
+    return `<div class="section-title">연간 성적 추이</div>
+      <div class="hint" style="margin:0 0 8px">같은 학생이 <b>2개 이상 회차</b>를 응시하면 여기에 추이 그래프가 나타납니다. 현재는 데이터가 부족합니다.</div>`;
+  }
+  // 회차 축: 라이브러리 순서 (고3 화작·언매는 같은 회차이므로 축에서 1개로 합침)
+  const seenOrd=new Set();
+  const exams=EXAM_LIBRARY.slice().sort((a,b)=>a.order-b.order)
+    .filter(e=>{ if(seenOrd.has(e.order)) return false; seenOrd.add(e.order); return true; });
+  const W=320,H=180,padL=34,padR=14,padT=16,padB=34;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const xFor=o=>padL+plotW*((o-1)/(Math.max(1,exams.length-1)));
+  const yFor=p=>padT+plotH*(1-p/100);
+  const colors=["#2563EB","#0E7A55","#C0392B","#C77D0A","#7A3EA8","#0891B2"];
+  // grid + axis labels
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">`;
+  [0,25,50,75,100].forEach(p=>{
+    const y=yFor(p);
+    svg+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#E4E4DC" stroke-width="1"/>`;
+    svg+=`<text x="${padL-6}" y="${y+3}" text-anchor="end" font-size="8" fill="#9096A0" font-family="JetBrains Mono">${p}</text>`;
+  });
+  exams.forEach(e=>{
+    const x=xFor(e.order);
+    const short=e.name.replace("전국연합학력평가","").replace("2022 ","")
+      .replace(/2023학년도 /,"").replace("대학수학능력시험","수능").replace(" 모의평가","모평")
+      .replace(/ \(고3\)| \(홀수형\)| · 화법과 작문| · 언어와 매체/g,"").trim();
+    svg+=`<text x="${x}" y="${H-padB+16}" text-anchor="middle" font-size="8.5" fill="#6B7280" font-weight="700">${short}</text>`;
+  });
+  // lines per student
+  students.forEach((s,si)=>{
+    const col=colors[si%colors.length];
+    const pts=byStudent[s].slice().sort((a,b)=>a.order-b.order);
+    // 회차별 최신 기록(중복 시 마지막 저장) 하나만
+    const perOrder={}; pts.forEach(h=>perOrder[h.order]=h);
+    const seq=Object.values(perOrder).sort((a,b)=>a.order-b.order);
+    let d="";
+    seq.forEach((h,i)=>{ const x=xFor(h.order),y=yFor(h.pct); d+=(i?"L":"M")+x+" "+y+" "; });
+    svg+=`<path d="${d}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    seq.forEach(h=>{ const x=xFor(h.order),y=yFor(h.pct); svg+=`<circle cx="${x}" cy="${y}" r="3.4" fill="${col}"/>`; });
+  });
+  svg+=`</svg>`;
+  const legend=students.map((s,si)=>`<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#374151;margin-right:12px"><i style="width:10px;height:10px;border-radius:3px;background:${colors[si%colors.length]};display:inline-block"></i>${s}</span>`).join("");
+  return `<div class="section-title">연간 성적 추이 (원점수 %)</div>
+    <div class="card" style="margin-bottom:16px">
+      ${svg}
+      <div style="margin-top:8px;line-height:1.9">${legend}</div>
+    </div>`;
+}
+
+/* ---------- 내비게이션 ---------- */
+/* 연속 채점: 현재 결과를 (미저장 시) 기록에 자동 저장하고, 시험·정답표는 유지한 채
+   학생 이름과 답안만 비워 채점 화면으로 돌아간다. 학원에서 카드 뭉치를 연달아
+   처리할 때 이전 학생의 답이 다음 학생에게 섞여 들어가는 사고를 막는 것이 핵심. */
+function nextStudent(){
+  const L=window._lastResult;
+  if(L && !L.saved){
+    const g=computeGrade(L.r);
+    saveHistory(L.r,L.pct,L.gr);
+    L.saved=true;
+    toast("이전 학생 결과를 기록에 저장했습니다");
+  }
+  state.ans=state.key.map(()=>0);
+  document.getElementById("studentName").value="";
+  renderAnsGrid();
+  go("scan");
+  setTimeout(()=>{const f=document.getElementById("studentName");if(f)f.focus();},250);
+}
+function go(tab){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("on"));
+  document.getElementById("s-"+tab).classList.add("on");
+  document.querySelectorAll(".tabbar button").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
+  window.scrollTo({top:0,behavior:"instant"});
+  if(tab==="print"){ renderSheet(); }
+}
+document.querySelectorAll(".tabbar button").forEach(b=>b.onclick=()=>{
+  const t=b.dataset.tab;
+  if(t==="scan" && !state.key.some(k=>k.ans>0)){ toast("먼저 정답표를 작성하세요"); go("setup"); return; }
+  go(t);
+});
+
+/* ---------- 회차 프리셋 ---------- */
+function buildPresetOptions(){
+  const sel=document.getElementById("examPreset");
+  const grpOf=e=>e.grp==="h3"?"고3 · 2023학년도 (선택과목별)":(e.id.includes("-h2")?"고2 전국연합학력평가":"고1 전국연합학력평가");
+  const groups={};
+  EXAM_LIBRARY.forEach(e=>{(groups[grpOf(e)]??=[]).push(e);});
+  const gOrder=["고3 · 2023학년도 (선택과목별)","고2 전국연합학력평가","고1 전국연합학력평가"];
+  sel.innerHTML=`<option value="">직접 만들기 (빈 정답표)</option>`+
+    gOrder.filter(g=>groups[g]).map(g=>
+      `<optgroup label="${g}">`+
+      groups[g].slice().sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id))
+        .map(e=>`<option value="${e.id}">${e.name}${e.verified?" · 정답 완비":" · 정답 일부만 등록"}${e.cuts?" · 등급컷 등록":""}</option>`).join("")+
+      `</optgroup>`).join("");
+  sel.onchange=()=>loadPreset(sel.value);
+}
+function loadPreset(id){
+  currentExamId=id||null;
+  const note=document.getElementById("presetNote");
+  if(!id){ note.style.display="none";
+    document.getElementById("examName").value="";
+    state.qCount=45; document.getElementById("qCount").value="45"; buildFreshKey(); return;
+  }
+  const ex=EXAM_LIBRARY.find(e=>e.id===id);
+  document.getElementById("examName").value=ex.name;
+  if(ex.date) document.getElementById("examDate").value=ex.date;
+  state.qCount=ex.qCount; document.getElementById("qCount").value=String(ex.qCount);
+  if(ex.key){
+    state.key=ex.key.map(k=>({...k}));
+    state.ans=Array(ex.qCount).fill(0);
+    note.style.display="block";
+    if(ex.verified){
+      note.innerHTML=`✅ <b>${ex.host}</b> · ${ex.date} · 공식 정답표 교차검증 완료. 정답이 모두 입력되어 있습니다.`
+        +(ex.note?`<br><span style="opacity:.85">${ex.note}</span>`:"");
+    }else{
+      note.innerHTML=`⚠️ <b>${ex.host}</b> · ${ex.date} · 정답이 일부만 등록된 회차입니다. 비어 있는 문항을 채워야 채점됩니다.`
+        +(ex.note?`<br><span style="opacity:.85">${ex.note}</span>`:"");
+    }
+    renderKeyGrid(); renderAnsGrid();
+  }else{
+    buildFreshKey();
+    note.style.display="block";
+    note.innerHTML=`⚠️ <b>${ex.host}</b> · 이 회차는 <b>정답이 아직 없습니다</b>. 공식 정답표를 업로드해 주시거나, 아래 정답표를 직접 채워 주세요. (임의로 정답을 넣지 않습니다.)`;
+  }
+}
+function buildFreshKey(){
+  const q=state.qCount;
+  state.key=Array.from({length:q},()=>({ans:0,area:"",diff:"중",points:2}));
+  state.ans=Array(q).fill(0);
+  curQ=0;
+  renderKeyGrid(); updateAnsUI(false);
+}
+
+/* ---------- 초기화 & 배선 ---------- */
+function init(){
+  buildPresetOptions();
+  buildFreshKey();
+  document.getElementById("examDate").valueAsDate=new Date();
+  renderHistory();
+}
+document.getElementById("qCount").onchange=e=>{state.qCount=+e.target.value; currentExamId=null; document.getElementById("examPreset").value=""; document.getElementById("presetNote").style.display="none"; buildFreshKey();};
+document.getElementById("autoAreaBtn").onclick=()=>{ if(state.qCount!==45){toast("영역 자동 구성은 45문항에서 지원합니다");return;} state.key.forEach((k,i)=>{k.area=STD45[i]||"";}); renderKeyGrid(); toast("표준 영역 구성을 적용했습니다"); };
+document.getElementById("toPrintBtn").onclick=()=>{ if(!state.key.some(k=>k.ans>0)){toast("정답을 하나 이상 입력하세요");return;} go("print"); };
+document.getElementById("toScanBtn").onclick=()=>{ document.getElementById("scanTitle").textContent=(document.getElementById("examName").value.trim()||"답안지")+" 채점"; updateAnsUI(false); go("scan"); };
+document.getElementById("backToPrint").onclick=()=>go("print");
+document.getElementById("printBtn").onclick=()=>window.print();
+/* [안전장치] 답안지 탭을 거치지 않고 Ctrl+P / 브라우저 메뉴로 인쇄하면
+   omrSheet가 비어 있어 백지가 나올 수 있음 → 인쇄 직전 자동 렌더. */
+window.addEventListener("beforeprint",()=>{
+  if(!document.getElementById("omrSheet").children.length) renderSheet();
+});
+document.getElementById("gradeBtn").onclick=()=>{
+  const blanks=state.ans.map((a,i)=>a===0?i+1:null).filter(Boolean);
+  if(blanks.length){
+    const list=blanks.slice(0,8).join(", ")+"번"+(blanks.length>8?` 외 ${blanks.length-8}개`:"");
+    if(!confirm(`미표기 ${blanks.length}문항은 오답(0점) 처리됩니다.\n(${list})\n이대로 채점할까요?`))return;
+  }
+  const r=grade();if(!r)return;renderResult(r);go("result");
+};
+/* PDF 새 창의 "다음 학생 채점" 버튼 → 본 창에서 연속 채점 시작 */
+window.addEventListener("message",e=>{
+  if(e && e.data && e.data.type==="seoro-next-student") nextStudent();
+});
+document.getElementById("nbPrev").onclick=()=>go("scan");
+document.getElementById("nbNext").onclick=()=>nextStudent();
+document.getElementById("resetBtn").onclick=()=>{if(confirm("현재 시험을 초기화할까요?")){document.getElementById("examName").value="";document.getElementById("studentName").value="";window._lastResult=null;init();go("setup");}};
+
+let toastTimer;
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove("show"),2100);}
+
+init();
+</script>
+</body>
+</html>
