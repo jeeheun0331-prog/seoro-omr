@@ -257,7 +257,7 @@ input,select{font-family:inherit}
 .sheet-preview{background:#8a8f98;border-radius:14px;padding:14px;overflow:auto;-webkit-overflow-scrolling:touch}
 .sheet-scale{transform-origin:top left}
 .sheet{width:210mm;height:297mm;background:#fff;position:relative;font-family:"Gothic A1",sans-serif;color:#111;box-shadow:0 4px 20px rgba(0,0,0,.3)}
-.fid{position:absolute;background:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:inset 0 0 0 100mm #000;border:0.1mm solid #000}
+.fid{position:absolute;background:#000}
 .sheet .s-title{position:absolute;left:25mm;top:12mm;font-family:"Noto Serif KR",serif;font-weight:900;font-size:8mm;color:#111;letter-spacing:-0.5mm}
 .sheet .s-brand{position:absolute;left:25mm;top:6mm;font-size:3.4mm;font-weight:800;color:#132A5C;letter-spacing:0.5mm}
 .sheet .s-exam{position:absolute;left:25mm;top:24mm;font-size:3.6mm;font-weight:700;color:#333}
@@ -271,13 +271,8 @@ input,select{font-family:inherit}
   @page{size:A4;margin:0}
   body{background:#fff;padding:0;max-width:none}
   body>*{display:none !important}
-  /* [버그 수정] #printRoot는 body 직계가 아니라 section#s-print 내부에 있음.
-     조상(section.screen)이 display:none이면 자손을 block으로 지정해도 렌더되지 않아
-     인쇄 미리보기·출력이 전부 백지가 되는 문제 → 조상 체인을 함께 복원한다.
-     탭 전환으로 .on이 없는 상태에서 인쇄해도 출력되도록 !important로 강제. */
-  body>#s-print{display:block !important;padding:0 !important;margin:0 !important}
   #printRoot{display:block !important;padding:0;margin:0}
-  #printRoot .sheet-preview{background:none;padding:0;overflow:visible;height:auto !important}
+  #printRoot .sheet-preview{background:none;padding:0;overflow:visible}
   #printRoot .sheet-scale{transform:none !important}
   #printRoot .sheet{box-shadow:none;margin:0}
   #printRoot .sheet-toolbar,#printRoot .hero,#printRoot .hint,#printRoot .section-title{display:none !important}
@@ -299,7 +294,7 @@ input,select{font-family:inherit}
 <!-- ===== 1. 정답표 ===== -->
 <section class="screen on" id="s-setup">
   <div class="hero">
-    <div class="eyebrow">STEP 1 · 정답표</div>
+    <div class="eyebrow">STEP 1 · 정답표 <span id="buildBadge" style="float:right;font-weight:800;opacity:.75">v2026-09-24 · 이감 1~3회</span></div>
     <h2>정답과 시험 정보를<br>먼저 설정하세요</h2>
     <p>정답·영역·배점을 지정해 두면, 스캔한 답안을 즉시 채점하고 영역별·난이도별로 분석합니다.</p>
   </div>
@@ -752,7 +747,19 @@ const EXAM_LIBRARY=[
    2026-08: 2024학년도 시리즈 개시 — 10월 학평(2023-10-12 시행, 서울) 및
    수능(2023-11-16 시행, 홀수형) 추가. 두 회차 모두 정답·3점·등급컷 전 항목 확정 등록.
    2026-08(추가): 2024학년도 9월 모평(2023-09-06 시행, 평가원) 등록 —
-   공식 정답표 이미지 + 화작·언매 문제지 원본 + 확정 등급컷 표 3종 대조 완료. */
+   공식 정답표 이미지 + 화작·언매 문제지 원본 + 확정 등급컷 표 3종 대조 완료.
+   2026-08(추가): 2024학년도 6월 모평(2023-06-01 시행, 평가원) 등록 —
+   화작·언매 공식 정답표 이미지 + 문제지 원본([3점] 전수 확인) + 종로 확정 등급컷 대조 완료.
+   이로써 2024학년도 시리즈 평가원 3회(6·9·수능) 전량 등록.
+   2026-08(추가): 2023 4월 학평(2023-04-12 시행, 경기) 등록 —
+   화작·언매 공식 정답표 이미지 + 문제지 원본([3점] 전수 확인) + 확정 등급컷(원점수) 대조 완료.
+   이로써 2024학년도 시리즈 교육청 학평 4·7·10월 등록(잔여: 2024년 3월 학평 등 차기 시리즈).
+   2026-08(추가): 2023 3월 학평(2023-03-23 시행, 서울) 등록 —
+   화작·언매 공식 정답표 이미지 + 문제지 원본([3점] 전수 확인) + 확정 등급컷(원점수) 대조 완료.
+   이로써 2024학년도 시리즈 교육청 학평 3·4·7·10월 전량 등록 완료.
+   2026-09: 사설 회차 수용 개시 — 이감 시즌6 파이널 1회(2027학년도 대비) 등록.
+   등급 로직을 가변 컷 지원으로 확장(computeGrade/gradeName): 일부 컷만 제공되는
+   사설 회차는 최하 컷 미만을 "N+1등급 이하"로 표시하며, 9값 공식 회차의 동작은 불변. */
 function areaH3(subj){
   return q=>{ if(q<=17)return"독서"; if(q<=34)return"문학";
     if(subj==="화작")return"화작"; return q<=39?"문법":"매체"; };
@@ -767,7 +774,7 @@ function buildKeyH3(commonStr, selStr, ptsC, ptsS, subj){
 }
 const H3_SETS=[
   { base:"2023h3-03", order:21,
-    name:"2022 3월 고3 전국연합학력평가", date:"2022-03-24", host:"서울특별시교육청",
+    name:"2022년 3월 고3 전국연합학력평가", date:"2022-03-24", host:"서울특별시교육청",
     common:"4 3 1 3 5 3 5 1 5 2 3 1 3 2 2 2 3 5 2 3 1 4 5 4 4 1 5 1 2 4 5 4 2 4",
     ptsC:[2,8,12,17,21,27,30,34],
     hw:"3 5 5 2 4 2 1 4 3 1 4", ptsHw:[37,40],
@@ -775,7 +782,7 @@ const H3_SETS=[
     cutsHw:[93,85,76,66,53,40,28,20,0], cutsEm:[88,80,72,61,49,36,25,18,0],
     note:"공통 정답표 등록 완료(화작·언매 정답지 상호 일치). 선택 정답은 기존 검수 확정값과 정답지 원본이 일치함을 교차 확인. 3점: 공통 2·8·12·17·21·27·30·34 / 화작 37·40 / 언매 37·42."},
   { base:"2023h3-04", order:22,
-    name:"2022 4월 고3 전국연합학력평가", date:"2022-04-13", host:"경기도교육청",
+    name:"2022년 4월 고3 전국연합학력평가", date:"2022-04-13", host:"경기도교육청",
     common:"3 5 2 4 1 3 5 3 4 3 4 2 2 4 1 5 3 4 2 5 5 5 5 4 4 2 1 4 3 3 3 1 5 4",
     ptsC:[2,8,13,16,22,25,30,34],
     hw:"4 5 5 3 3 2 4 2 1 5 4", ptsHw:[37,40],
@@ -783,7 +790,7 @@ const H3_SETS=[
     cutsHw:[98,92,82,72,57,42,27,20,0], cutsEm:[94,88,79,69,55,40,26,19,0],
     note:"화작·언매 정답표 + 문제지 [3점] 표기 전수 대조 완료(공통 2·8·13·16·22·25·30·34 / 화작 37·40 / 언매 36·43). 이 회차 역시 화작·언매 3점 위치가 서로 다름."},
   { base:"2023h3-06", order:23,
-    name:"2023학년도 6월 모의평가 (고3)", date:"2022-06-09", host:"한국교육과정평가원",
+    name:"2022년 6월 모의평가 (2023학년도·고3)", date:"2022-06-09", host:"한국교육과정평가원",
     common:"1 5 4 1 3 4 1 2 3 1 2 4 3 1 5 4 2 4 3 4 5 5 2 2 1 1 2 3 1 3 5 2 4 1",
     ptsC:[3,8,13,16,21,27,31,34],
     hw:"1 4 3 2 5 2 4 5 3 5 3", ptsHw:[36,40],
@@ -791,7 +798,7 @@ const H3_SETS=[
     cutsHw:[88,79,71,61,48,36,25,19,0], cutsEm:[84,76,68,58,45,33,22,16,0],
     note:"화작·언매 정답표 + 문제지 [3점] 표기 전수 대조 완료. 기존 ‘36·39 공통’ 가정은 오류로 확인되어 화작 36·40 / 언매 39·42로 분리 등록."},
   { base:"2023h3-07", order:24,
-    name:"2022 7월 고3 전국연합학력평가", date:"2022-07-06", host:"인천광역시교육청",
+    name:"2022년 7월 고3 전국연합학력평가", date:"2022-07-06", host:"인천광역시교육청",
     common:"4 5 4 2 2 5 4 3 1 3 2 4 4 5 2 3 3 5 1 4 1 1 4 2 3 5 1 5 3 3 2 2 5 4",
     ptsC:[2,8,12,16,20,26,30,34],
     hw:"5 2 4 3 3 5 2 1 2 5 5", ptsHw:[36,44],
@@ -799,7 +806,7 @@ const H3_SETS=[
     cutsHw:[95,89,81,70,54,34,23,19,0], cutsEm:[94,88,80,69,53,33,21,18,0],
     note:"화작·언매 문제지 [3점] 표기 전수 확인 + 정답표 원본 대조 완료(2026-07). 3점: 공통 2·8·12·16·20·26·30·34 / 화작 36·44 / 언매 36·43. 36번은 양 과목 3점이지만 문항·정답이 서로 다름(화작 ②, 언매 ③)."},
   { base:"2023h3-09", order:25,
-    name:"2023학년도 9월 모의평가 (고3)", date:"2022-08-31", host:"한국교육과정평가원",
+    name:"2022년 9월 모의평가 (2023학년도·고3)", date:"2022-08-31", host:"한국교육과정평가원",
     common:"1 4 1 3 1 5 5 3 1 2 4 2 4 2 5 5 1 4 2 3 4 1 4 5 5 4 3 5 4 3 3 4 3 2",
     ptsC:[2,8,13,16,21,23,31,34],
     hw:"4 4 3 1 2 2 5 2 1 5 2", ptsHw:[40,45],
@@ -807,7 +814,7 @@ const H3_SETS=[
     cutsHw:[93,87,80,71,57,43,27,19,0], cutsEm:[88,82,75,66,53,39,24,16,0],
     note:"화작·언매 정답표 + 문제지 [3점] 표기 전수 대조 완료. 기존 ‘37·40 공통’ 가정은 오류로 확인되어 화작 40·45 / 언매 37·45로 분리 등록."},
   { base:"2023h3-10", order:26,
-    name:"2022 10월 고3 전국연합학력평가", date:"2022-10-12", host:"서울특별시교육청",
+    name:"2022년 10월 고3 전국연합학력평가", date:"2022-10-12", host:"서울특별시교육청",
     common:"5 1 2 3 2 1 3 2 1 2 5 5 4 4 4 1 1 3 3 4 3 4 2 2 4 3 1 4 5 5 5 2 1 3",
     ptsC:[2,6,11,15,22,26,28,34],
     hw:"3 1 5 4 2 5 3 1 4 5 2", ptsHw:[37,44],
@@ -815,15 +822,39 @@ const H3_SETS=[
     cutsHw:[90,83,76,66,54,34,21,18,0], cutsEm:[86,80,73,64,51,32,19,16,0],
     note:"화작·언매 문제지 [3점] 표기 전수 확인 + 정답표 원본 대조 완료(2026-07). 3점: 공통 2·6·11·15·22·26·28·34 / 화작 37·44 / 언매 37·45. 37번은 양 과목 3점이지만 문항·정답이 서로 다름(화작 ⑤, 언매 ①)."},
   { base:"2023h3-su", order:27,
-    name:"2023학년도 대학수학능력시험 (홀수형)", date:"2022-11-17", host:"한국교육과정평가원",
+    name:"2023학년도 수능 (2022년 11월 시행·홀수형)", date:"2022-11-17", host:"한국교육과정평가원",
     common:"4 5 1 4 5 3 2 5 2 4 5 2 5 3 4 4 1 4 3 3 5 1 5 3 3 4 1 5 1 2 1 4 2 3",
     ptsC:[2,8,12,17,21,24,30,34],
     hw:"1 5 3 4 4 3 2 4 5 2 1", ptsHw:[41,45],
     em:"2 4 1 4 1 2 1 3 5 4 3", ptsEm:[38,43],
     cutsHw:[96,92,86,79,67,53,37,24,0], cutsEm:[92,88,82,75,64,49,33,21,0],
     note:"출처 3종(문제지·해설·정답표) 교차 일치 + 확정 등급컷(원점수) 등록. 기존 ‘38·41 공통’ 가정은 오류로 확인되어 화작 41·45 / 언매 38·43으로 분리 등록."},
+  { base:"2024h3-03", order:27.1,
+    name:"2023년 3월 고3 전국연합학력평가", date:"2023-03-23", host:"서울특별시교육청",
+    common:"3 5 4 4 2 5 4 1 4 1 2 5 1 2 3 5 2 4 5 3 5 1 3 3 2 1 3 1 2 5 3 4 2 3",
+    ptsC:[2,6,12,17,21,27,30,34],
+    hw:"2 5 5 3 4 4 1 1 1 2 4", ptsHw:[39,45],
+    em:"4 3 1 4 5 2 4 5 1 2 3", ptsEm:[36,45],
+    cutsHw:[90,81,72,62,51,39,27,20,0], cutsEm:[87,79,69,59,48,37,25,17,0],
+    note:"화작·언매 공식 정답표(이미지) + 문제지 [3점] 표기 전수 대조 완료(공통 1~34 화작·언매 상호 일치, 2026-08). 3점: 공통 2·6·12·17·21·27·30·34 / 화작 39·45 / 언매 36·45. 등급컷: 확정 원점수 컷 전사(표점 최고 화작·언매 146, 1컷 표점 133·백분위 96 — 화작·언매 표점 컷 동일 회차). 공통 영역: 독서 1~17(상위인지 독해조정·모방/밈 주제통합·부동산 등기·초임계 결정화 공정) · 문학 18~34(오래된 일기·총석곡/고산별곡/동해·장수산1/고요를 시청하다·이대봉전) — areaH3 기본 배치와 일치. 배점 검산: 공통 76 + 선택 24 = 100."},
+  { base:"2024h3-04", order:27.3,
+    name:"2023년 4월 고3 전국연합학력평가", date:"2023-04-12", host:"경기도교육청",
+    common:"5 5 4 5 5 3 3 3 1 5 4 4 4 2 3 4 2 3 2 5 4 3 4 1 4 4 1 4 5 3 3 2 5 3",
+    ptsC:[2,7,12,15,21,23,30,34],
+    hw:"5 4 3 2 5 5 2 4 1 4 3", ptsHw:[40,44],
+    em:"2 1 3 5 4 2 2 2 4 5 4", ptsEm:[36,43],
+    cutsHw:[98,91,83,72,59,43,29,21,0], cutsEm:[92,85,77,67,54,38,24,16,0],
+    note:"화작·언매 공식 정답표(이미지) + 문제지 [3점] 표기 전수 대조 완료(공통 1~34 화작·언매 상호 일치, 2026-08). 3점: 공통 2·7·12·15·21·23·30·34 / 화작 40·44 / 언매 36·43. 등급컷: 확정 원점수 컷 전사(표점 최고 화작·언매 137, 1컷 표점 화작 131·언매 130). 공통 영역: 독서 1~17(율곡 독서병통·특허 주제통합·명실론·가스센서) · 문학 18~34(서호가/애경당십이월가·노정기/발효/몰인설·현수문전·평지) — areaH3 기본 배치와 일치. 배점 검산: 공통 76 + 선택 24 = 100."},
+  { base:"2024h3-06", order:27.5,
+    name:"2023년 6월 모의평가 (2024학년도·고3)", date:"2023-06-01", host:"한국교육과정평가원",
+    common:"2 5 1 2 4 5 5 3 1 4 3 1 3 1 2 3 4 1 2 4 5 5 4 1 3 4 5 3 4 2 4 2 5 3",
+    ptsC:[2,6,10,16,21,26,30,33],
+    hw:"1 5 2 4 3 5 1 4 2 5 3", ptsHw:[40,44],
+    em:"3 5 2 4 4 2 1 5 5 3 1", ptsEm:[36,42],
+    cutsHw:[98,91,83,73,60,47,29,20,0], cutsEm:[93,87,79,69,57,44,27,18,0],
+    note:"화작·언매 공식 정답표(이미지) + 문제지 [3점] 표기 전수 대조 완료(공통 1~34 화작·언매 상호 일치, 2026-08). 3점: 공통 2·6·10·16·21·26·30·33 / 화작 40·44 / 언매 36·42. 등급컷: 확정 원점수 컷 전사(표점 최고 화작 132·언매 136, 1컷 표점 130). 공통 영역: 독서 1~17(독서동기·공포소구·고체촉매·심리철학 주제통합) · 문학 18~34(상사동기·한거십팔곡/기취서행·무성격자·맹세/봄) — areaH3 기본 배치와 일치. 배점 검산: 공통 76 + 선택 24 = 100."},
   { base:"2024h3-07", order:28,
-    name:"2023 7월 고3 전국연합학력평가", date:"2023-07-11", host:"인천광역시교육청",
+    name:"2023년 7월 고3 전국연합학력평가", date:"2023-07-11", host:"인천광역시교육청",
     common:"4 4 2 5 1 4 3 4 5 2 3 4 1 5 2 2 5 1 5 3 4 1 4 3 2 1 4 2 3 1 1 3 5 2",
     ptsC:[2,8,12,17,21,25,29,34],
     hw:"1 4 4 3 5 2 5 4 4 5 5", ptsHw:[39,45],
@@ -831,7 +862,7 @@ const H3_SETS=[
     cutsHw:[92,85,75,62,47,31,23,16,0], cutsEm:[89,82,73,60,44,29,20,13,0],
     note:"화작·언매 공식 정답표(이미지) + 문제지 [3점] 표기 전수 대조 완료(공통 1~34 화작·언매 상호 일치, 2026-08). 3점: 공통 2·8·12·17·21·25·29·34 / 화작 39·45 / 언매 37·39. 등급컷: 확정 원점수 컷 전사(표점 최고 141·1컷 표점 132, 화작·언매 표점/백분위 컷 동일 회차). 공통 영역: 독서 1~17(추론적읽기·도가/우연철학·법해석·이중편파레이더) · 문학 18~34(조웅전·관촌수필·귀산음/노계가/거꾸로보기·나무처럼/별을굽다) — areaH3 기본 배치와 일치. ※ 동일 인천 주관 2022년 7월 시행분(2023h3-07)과 별개 회차."},
   { base:"2024h3-09", order:29,
-    name:"2024학년도 9월 모의평가 (고3)", date:"2023-09-06", host:"한국교육과정평가원",
+    name:"2023년 9월 모의평가 (2024학년도·고3)", date:"2023-09-06", host:"한국교육과정평가원",
     common:"2 3 3 3 5 4 1 5 4 5 2 4 5 3 4 5 1 5 2 3 3 2 4 4 3 2 4 1 4 5 4 2 4 1",
     ptsC:[3,6,11,16,21,27,31,34],
     hw:"2 4 3 4 5 1 5 1 3 5 5", ptsHw:[40,45],
@@ -839,7 +870,7 @@ const H3_SETS=[
     cutsHw:[91,84,77,68,58,46,30,19,0], cutsEm:[88,81,73,65,55,43,27,16,0],
     note:"화작·언매 공식 정답표(이미지) + 문제지 [3점] 표기 전수 대조 완료(공통 1~34 화작·언매 상호 일치, 2026-08). 3점: 공통 3·6·11·16·21·27·31·34 / 화작 40·45 / 언매 38·42. 등급컷: 확정 원점수 컷 전사(표점 최고 142·1컷 표점 130, 화작·언매 표점/백분위 컷 동일 회차). 공통 영역: 독서 1~17(읽기발달·데이터이동권·압전효과·조선신분제) · 문학 18~34(숙영낭자전·월훈/연1/문의당기·원미동시인·성산별곡/사설시조) — areaH3 기본 배치와 일치."},
   { base:"2024h3-10", order:30,
-    name:"2023 10월 고3 전국연합학력평가", date:"2023-10-12", host:"서울특별시교육청",
+    name:"2023년 10월 고3 전국연합학력평가", date:"2023-10-12", host:"서울특별시교육청",
     common:"4 2 2 3 2 5 1 5 2 5 5 4 3 1 3 2 2 5 2 3 4 3 4 2 1 4 4 1 1 5 1 3 3 5",
     ptsC:[2,6,10,15,19,26,30,34],
     hw:"1 4 1 3 4 5 2 3 1 2 4", ptsHw:[36,45],
@@ -847,13 +878,37 @@ const H3_SETS=[
     cutsHw:[98,94,87,78,63,38,23,19,0], cutsEm:[97,92,85,76,61,35,20,16,0],
     note:"화작·언매 문제지 [3점] 표기 전수 확인 + 정답표 교차 대조 완료(공통 1~34 화작·언매 상호 일치, 2026-08). 3점: 공통 2·6·10·15·19·26·30·34 / 화작 36·45 / 언매 35·42. 등급컷: 확정 원점수 컷 전사(표점 최고 128). 문제지 공식 표제는 교육청 표기 관례상 ‘2023학년도 10월’이나, 앱 시리즈 분류는 수능 학년도 기준(2024학년도 시리즈)."},
   { base:"2024h3-su", order:31,
-    name:"2024학년도 대학수학능력시험 (홀수형)", date:"2023-11-16", host:"한국교육과정평가원",
+    name:"2024학년도 수능 (2023년 11월 시행·홀수형)", date:"2023-11-16", host:"한국교육과정평가원",
     common:"5 3 1 5 3 2 2 3 1 5 2 3 1 4 4 5 4 2 1 3 5 2 1 3 3 2 5 1 4 1 2 2 3 4",
     ptsC:[3,6,10,16,21,27,31,34],
     hw:"4 5 4 4 5 1 3 3 2 5 1", ptsHw:[40,45],
     em:"4 4 1 3 5 2 1 5 3 4 5", ptsEm:[39,45],
     cutsHw:[88,80,72,63,52,42,32,22,0], cutsEm:[84,77,69,59,49,39,29,19,0],
-    note:"화작·언매 문제지 [3점] 표기 전수 확인 + 정답표 교차 대조 완료(공통 1~34 화작·언매 상호 일치, 2026-08). 3점: 공통 3·6·10·16·21·27·31·34 / 화작 40·45 / 언매 39·45. 등급컷: 확정 원점수 컷 전사(표점 최고 150·1컷 표점 133) — 언매 3컷 68.9는 정수 채점 동치값 69로 등록."}
+    note:"화작·언매 문제지 [3점] 표기 전수 확인 + 정답표 교차 대조 완료(공통 1~34 화작·언매 상호 일치, 2026-08). 3점: 공통 3·6·10·16·21·27·31·34 / 화작 40·45 / 언매 39·45. 등급컷: 확정 원점수 컷 전사(표점 최고 150·1컷 표점 133) — 언매 3컷 68.9는 정수 채점 동치값 69로 등록."},
+  { base:"2027igam-s6-01", order:32,
+    name:"2027 이감 시즌6 파이널 1회 (예비평가)", date:"2026-09-24", host:"이감국어교육연구소",
+    common:"2 4 5 4 1 3 5 5 5 1 1 3 3 4 2 4 2 3 3 4 2 1 5 4 4 3 2 1 5 5 2 4 5 1",
+    ptsC:[2,8,13,16,21,27,31,34],
+    hw:"4 2 5 4 2 5 4 1 5 1 3", ptsHw:[39,45],
+    em:"4 3 5 5 2 2 1 4 3 3 4", ptsEm:[35,45],
+    cutsHw:[87,80,73,65,52,42], cutsEm:[84,75,67,58,48,39],
+    note:"사설(이감) 회차. 이감 공식 배점표(등급컷 문서) 기준 3점 확정 + 문제지 [3점] 표기 표본 3건(공통 2·8, 언매 35) 교차 일치, 정답지 스캔 시각 판독 2회 대조(2026-09). 등급컷: 이감 제공 1~6컷만 등록(사설 관례) — 최하 컷 미만은 7등급 이하로 표시. date는 등록일(시행일 확인 시 교체)."},
+  { base:"2027igam-s6-02", order:33,
+    name:"2027 이감 시즌6 파이널 2회 (예비평가)", date:"2026-09-24", host:"이감국어교육연구소",
+    common:"4 2 2 3 2 5 3 4 1 3 1 1 5 5 5 1 4 5 2 5 3 1 2 4 3 4 2 4 1 5 1 3 1 4",
+    ptsC:[3,8,12,17,21,26,30,32],
+    hw:"1 1 4 2 2 3 5 5 5 2 3", ptsHw:[40,45],
+    em:"5 2 3 5 1 1 3 4 2 4 3", ptsEm:[36,42],
+    cutsHw:[92,85,76,66,57,47], cutsEm:[90,83,73,65,55,46],
+    note:"사설(이감) 회차. 이감 공식 배점표(등급컷 문서, 텍스트 추출) 기준 3점 확정 + 문제지 [3점] 표기 표본 2건(공통 3, 언매 36) 교차 일치, 정답지 스캔 시각 판독(2026-09). 등급컷: 이감 제공 1~6컷만 등록 — 최하 컷 미만은 7등급 이하로 표시. date는 등록일(시행일 확인 시 교체). 공통 3점이 1회와 전부 다름(3·8·12·17·21·26·30·32)."},
+  { base:"2027igam-s6-03", order:34,
+    name:"2027 이감 시즌6 파이널 3회 (예비평가)", date:"2026-09-24", host:"이감국어교육연구소",
+    common:"5 2 3 4 5 3 4 1 2 2 4 3 3 1 5 5 1 1 4 4 5 2 5 4 3 1 2 3 1 5 1 2 5 3",
+    ptsC:[3,8,12,17,21,24,28,34],
+    hw:"1 2 2 4 2 5 1 3 5 3 1", ptsHw:[40,44],
+    em:"2 2 1 5 1 1 3 3 3 4 5", ptsEm:[38,42],
+    cutsHw:[92,84,77,67,58,46], cutsEm:[90,83,75,66,57,44],
+    note:"사설(이감) 회차. 이감 공식 배점표(등급컷 문서, 텍스트 추출) 기준 3점 확정 + 문제지 [3점] 표기 표본 2건(공통 3, 언매 38) 교차 일치, 정답지 스캔 시각 판독(2026-09). 등급컷: 이감 제공 1~6컷만 등록 — 최하 컷 미만은 7등급 이하로 표시. date는 등록일(시행일 확인 시 교체)."}
 ];
 H3_SETS.forEach(s=>{
   [["화작","hw","ptsHw","hwajak","화법과 작문","cutsHw"],["언매","em","ptsEm","eonmae","언어와 매체","cutsEm"]]
@@ -2238,16 +2293,23 @@ function grade(){
 }
 function estGrade(p){if(p>=96)return 1;if(p>=89)return 2;if(p>=77)return 3;if(p>=60)return 4;if(p>=40)return 5;if(p>=23)return 6;if(p>=11)return 7;if(p>=4)return 8;return 9;}
 /* 등급 산출: 회차별 실제 등급컷(cuts, 원점수 기준)이 있으면 그것을,
-   없으면 정규분포 근사 백분율 표(estGrade)를 참고용으로 사용한다. */
+   없으면 정규분포 근사 백분율 표(estGrade)를 참고용으로 사용한다.
+   컷 배열은 가변 길이 지원: 말단 0(관례) 및 미제공 컷을 제거한 유효 컷만 사용.
+   9값(1~8컷+0) 공식 회차는 기존과 동일하게 1~9등급을 산출하고,
+   사설 모의고사처럼 일부 컷만 제공되면(예: 이감 1~6컷) 최하 컷 미만을
+   "N+1등급 이하"로 표시한다(floor 플래그). */
 function computeGrade(r){
   const ex=r.examId?EXAM_LIBRARY.find(e=>e.id===r.examId):null;
   if(ex && ex.cuts && r.totalPoints===100){
-    for(let g=1;g<=8;g++){ if(r.rawScore>=ex.cuts[g-1]) return {grade:g,real:true,cuts:ex.cuts}; }
-    return {grade:9,real:true,cuts:ex.cuts};
+    const eff=ex.cuts.filter(c=>c>0);
+    const K=Math.min(eff.length,8);
+    for(let g=1;g<=K;g++){ if(r.rawScore>=eff[g-1]) return {grade:g,real:true,cuts:eff,floor:false}; }
+    return {grade:K+1,real:true,cuts:eff,floor:K<8};
   }
   const pct=Math.round(r.rawScore/r.totalPoints*100);
-  return {grade:estGrade(pct),real:false,cuts:null};
+  return {grade:estGrade(pct),real:false,cuts:null,floor:false};
 }
+function gradeName(g){ return `${g.grade}등급${g.floor?" 이하":""}`; }
 /* ---------- AI 맞춤 학습 추천 보고서 ---------- */
 /* 틀린 문항만 모아 영역·난이도별로 정리한 오답 리포트 HTML.
    미표기(안 칠함)와 오답(틀리게 칠함)을 구분하고, 영역별로 묶어 복습 우선순위를 보여준다. */
@@ -2461,7 +2523,7 @@ function renderResult(r){
   const R=68,C=2*Math.PI*R,off=C*(1-pct/100);
   let gradeLabel, gapNote="";
   if(g.real){
-    gradeLabel=`${gr}등급 · ${pct}%`;
+    gradeLabel=`${gradeName(g)} · ${pct}%`;
     if(gr>1){
       const nextCut=g.cuts[gr-2], gap=nextCut-r.rawScore;
       gapNote=`<div class="score-note">${gr-1}등급까지 ${gap}점 남음 (원점수 ${nextCut}점)</div>`;
@@ -2551,7 +2613,7 @@ function sendFullReport(r, g, pct) {
 
 📊 성적 요약
 - 점수: ${r.rawScore}점 / ${r.totalPoints}점
-- 등급: ${g.grade}등급${g.real ? "" : "(추정)"}${nextCutText}
+- 등급: ${g.real ? gradeName(g) : `추정 ${g.grade}등급`}${nextCutText}
 
 🚨 취약 영역 진단
 가장 오답이 많은 영역은 [${AREA_FULL[weakestArea] || weakestArea}] 입니다. (정답률 ${minPct}%)
@@ -2575,7 +2637,7 @@ ${g.grade <= 2 ? "최상위권 유지를 위해 고난도 문항의 근거를 �
    (외부 서버·저장소가 필요 없고, 링크 안에 데이터가 통째로 들어 있는 방식) */
 function buildReportPage(r, g, pct, gr, forPrint=false){
   const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-  const gradeTxt = g.real ? `${gr}등급` : `추정 ${gr}등급`;
+  const gradeTxt = g.real ? gradeName(g) : `추정 ${gr}등급`;
   const wrongs=r.detail.filter(d=>d.st==="wrong");
   const areaRows=Object.entries(r.areaStat).map(([a,s])=>{
     const p=Math.round(s.correct/s.total*100); const cls=p<50?"low":p<75?"mid":"good";
@@ -2848,7 +2910,7 @@ function shareResult(r,pct,gr){
   const wrongs=r.detail.filter(d=>d.st==="wrong").map(d=>`${d.q}번(정답${d.ans}${d.unmarked?"·미표기":""})`).join(", ");
   const areaTxt=Object.entries(r.areaStat).map(([a,s])=>`  ${AREA_FULL[a]||a}: ${s.correct}/${s.total} (${Math.round(s.correct/s.total*100)}%)`).join("\n");
   const wrongLine=`정답 ${r.correct} / 오답 ${r.wrong}${r.unmarked?` (미표기 ${r.unmarked} 포함)`:""}`;
-  const gradeTxt=g.real?`${gr}등급`:`추정 ${gr}등급(등급컷 미등록)`;
+  const gradeTxt=g.real?gradeName(g):`추정 ${gr}등급(등급컷 미등록)`;
   const txt=`📋 ${r.exam}${r.student?` · ${r.student}`:""}\n응시일 ${r.date}\n\n원점수 ${r.rawScore}/${r.totalPoints}점 (${pct}%) · ${gradeTxt}\n${wrongLine}\n\n[영역별]\n${areaTxt}\n\n[오답] ${wrongs||"없음"}\n\n— 서로국어논술 OMR 채점기`;
   if(navigator.share) navigator.share({title:r.exam,text:txt}).catch(()=>copy(txt)); else copy(txt);
 }
@@ -2865,7 +2927,7 @@ function saveHistory(r,pct,gr){
   const real=!!(ex && ex.cuts && r.totalPoints===100);
   histMem.unshift({id:Date.now(),examId:currentExamId,order:ex?ex.order:99,
     exam:r.exam,student:r.student,date:r.date,raw:r.rawScore,total:r.totalPoints,pct,grade:gr,gradeReal:real,
-    correct:r.correct,wrong:r.wrong,unmarked:r.unmarked});
+    correct:r.correct,wrong:r.wrong,unmarked:r.unmarked,gradeFloor:!!computeGrade(r).floor});
   persistHist(); renderHistory();
 }
 function renderHistory(){
@@ -2874,7 +2936,7 @@ function renderHistory(){
   const trend=renderTrend();
   const list=histMem.map(h=>`<div class="hist-item"><div class="hscore"><div class="num">${h.raw}</div><div class="of">/${h.total}</div></div>
     <div class="hmeta"><div class="ht">${h.exam}${h.student?` · ${h.student}`:""}</div><div class="hd">${h.date} · 정답 ${h.correct}·오답 ${h.wrong}${h.unmarked?` (미표기 ${h.unmarked})`:""}</div></div>
-    <div class="hgrade">${h.grade}등급${h.gradeReal?"":"<small>(추정)</small>"}</div><button class="hist-del" data-del="${h.id}">✕</button></div>`).join("");
+    <div class="hgrade">${h.grade}등급${h.gradeFloor?" 이하":""}${h.gradeReal?"":"<small>(추정)</small>"}</div><button class="hist-del" data-del="${h.id}">✕</button></div>`).join("");
   b.innerHTML=trend+`<div class="section-title">전체 기록 (${histMem.length})</div>`+list;
   b.querySelectorAll("[data-del]").forEach(x=>x.onclick=()=>{histMem=histMem.filter(h=>h.id!=x.dataset.del);persistHist();renderHistory();});
 }
@@ -2971,10 +3033,14 @@ document.querySelectorAll(".tabbar button").forEach(b=>b.onclick=()=>{
 /* ---------- 회차 프리셋 ---------- */
 function buildPresetOptions(){
   const sel=document.getElementById("examPreset");
-  const grpOf=e=>e.grp==="h3"?"고3 · 2023학년도 (선택과목별)":(e.id.includes("-h2")?"고2 전국연합학력평가":"고1 전국연합학력평가");
+  const grpOf=e=>{
+    if(e.id.startsWith("2027igam"))return "고3 · 사설 모의고사 (이감)";
+    if(e.grp==="h3")return "고3 · 학평·모평·수능 (선택과목별)";
+    return e.id.includes("-h2")?"고2 전국연합학력평가":"고1 전국연합학력평가";
+  };
   const groups={};
   EXAM_LIBRARY.forEach(e=>{(groups[grpOf(e)]??=[]).push(e);});
-  const gOrder=["고3 · 2023학년도 (선택과목별)","고2 전국연합학력평가","고1 전국연합학력평가"];
+  const gOrder=["고3 · 사설 모의고사 (이감)","고3 · 학평·모평·수능 (선택과목별)","고2 전국연합학력평가","고1 전국연합학력평가"];
   sel.innerHTML=`<option value="">직접 만들기 (빈 정답표)</option>`+
     gOrder.filter(g=>groups[g]).map(g=>
       `<optgroup label="${g}">`+
@@ -3033,11 +3099,6 @@ document.getElementById("toPrintBtn").onclick=()=>{ if(!state.key.some(k=>k.ans>
 document.getElementById("toScanBtn").onclick=()=>{ document.getElementById("scanTitle").textContent=(document.getElementById("examName").value.trim()||"답안지")+" 채점"; updateAnsUI(false); go("scan"); };
 document.getElementById("backToPrint").onclick=()=>go("print");
 document.getElementById("printBtn").onclick=()=>window.print();
-/* [안전장치] 답안지 탭을 거치지 않고 Ctrl+P / 브라우저 메뉴로 인쇄하면
-   omrSheet가 비어 있어 백지가 나올 수 있음 → 인쇄 직전 자동 렌더. */
-window.addEventListener("beforeprint",()=>{
-  if(!document.getElementById("omrSheet").children.length) renderSheet();
-});
 document.getElementById("gradeBtn").onclick=()=>{
   const blanks=state.ans.map((a,i)=>a===0?i+1:null).filter(Boolean);
   if(blanks.length){
