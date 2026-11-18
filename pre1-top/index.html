@@ -329,8 +329,8 @@ body.locked .wrap{display:none}
   };
 
   function buildFeedback(g){
-    var nm = g.name || "학생", L = [];
-    L.push("안녕하세요, " + nm + " 학생 학부모님. 서로국어논술입니다.");
+    var nm = g.name || "학생", who = g.name ? g.name + " 학생" : "학생", L = [];
+    L.push("안녕하세요, " + who + " 학부모님. 서로국어논술입니다.");
     L.push(EXAM + " 결과를 안내드립니다.");
     L.push("");
     L.push("[결과]");
@@ -342,11 +342,11 @@ body.locked .wrap{display:none}
     L.push("· 고난도(4점) 문항 " + g.four + "개 / 10개 정답");
     L.push("");
     if(g.verdict === "pass"){
-      L.push(nm + " 학생은 2027 예비고1 최상위반 레벨 테스트에 합격했습니다. 등록 절차를 따로 안내해 드리겠습니다.");
+      L.push(who + "은 2027 예비고1 최상위반 레벨 테스트에 합격했습니다. 등록 절차를 따로 안내해 드리겠습니다.");
     }else if(g.verdict === "cond"){
-      L.push(nm + " 학생은 전체적으로 우수한 실력을 보였으나 일부 영역에서 보완이 필요합니다. 상담을 거쳐 반 배정을 확정하겠습니다.");
+      L.push(who + "의 영역별 결과를 바탕으로 강점과 보완할 점을 상담으로 자세히 안내해 드리겠습니다. 상담 후 반 배정을 안내해 드리겠습니다.");
     }else{
-      L.push(nm + " 학생은 기초를 다지는 것이 더 효과적입니다. 영역별 결과와 추천 반을 상담으로 안내해 드리겠습니다.");
+      L.push(who + "은 기초를 다지는 것이 더 효과적입니다. 영역별 결과와 추천 반을 상담으로 안내해 드리겠습니다.");
     }
     L.push("");
     var w = weakest(g);
@@ -379,7 +379,7 @@ body.locked .wrap{display:none}
          '<div class="scoremeta"><div>정답 <strong>' + g.right + '</strong> / 30문항</div>' +
          '<div>4점 문항 <strong>' + g.four + '</strong> / 10개 정답</div>' +
          '<div>미응답 <strong>' + g.blank + '</strong>문항</div></div></div>';
-    h += '<div class="verdict ' + g.verdict + '"><p class="vt">' + g.vlabel + '</p><p class="vr">' + esc(g.vreason) + '</p></div>';
+    h += '<div class="verdict ' + g.verdict + '"><p class="vt">' + g.vlabel + '</p><p class="vr">' + esc(g.vreason) + '</p>' + (g.verdict==="cond" ? '<p class="vr"><b>내부 판정입니다.</b> 학부모에게 \'조건부\'라는 표현을 쓰지 말고 아래 안내 문자를 사용하세요.</p>' : '') + '</div>';
 
     h += '<section><h2>영역별 성취</h2><div class="tblwrap"><table>' +
          '<caption>하한선을 넘지 못한 영역은 빨간색으로 표시됩니다.</caption>' +
