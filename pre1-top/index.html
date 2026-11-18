@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2027 예비고1 최상위반 레벨 테스트 채점기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --paper:#ffffff; --surface:#f7f5f1; --surface-2:#efece6;
+  --line:#e0dcd4; --line-strong:#c9c3b8;
+  --ink:#1c1a16; --ink-2:#4a463e; --ink-3:#7d776c;
+  --accent:#1b5c56; --accent-soft:#e3efed;
+  --gold:#9a6b1a; --gold-soft:#f8f0dd;
+  --good:#2c6e49; --good-soft:#e8f3ec;
+  --bad:#a8382c; --bad-soft:#fbeceb;
+  --warn:#8a5a00; --warn-soft:#fdf3dc;
+  --radius:10px; color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Noto Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;
+  font-size:17px;line-height:1.65;-webkit-text-size-adjust:100%}
+.wrap{max-width:820px;margin:0 auto;padding:28px 18px 96px}
+.masthead{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:26px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;color:var(--accent);margin:0 0 8px}
+h1{font-family:"Gowun Batang","Noto Sans KR",serif;font-weight:700;font-size:clamp(25px,6vw,34px);line-height:1.25;margin:0;text-wrap:balance}
+.sub{margin:8px 0 0;color:var(--ink-3);font-size:14.5px}
+section{margin-top:30px}
+h2{font-family:"Gowun Batang","Noto Sans KR",serif;font-size:20px;font-weight:700;margin:0 0 4px}
+.hint{margin:0 0 14px;color:var(--ink-3);font-size:14px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:520px){.fields{grid-template-columns:1fr}}
+.f{display:flex;flex-direction:column;gap:4px}
+label.lbl{font-size:14px;font-weight:500;color:var(--ink-2)}
+input[type=text]{width:100%;font:inherit;font-size:18px;padding:11px 14px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--paper);color:var(--ink)}
+input[type=text]:focus-visible,button:focus-visible,textarea:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px}
+.quick{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.quick input{flex:1 1 260px;font-family:"IBM Plex Mono",monospace;letter-spacing:.08em}
+.qmsg{font-size:13.5px;color:var(--ink-3);margin-top:6px;min-height:1.4em}
+.qmsg.err{color:var(--bad)}
+.progress{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:1px solid var(--line);padding:10px 0 9px;margin-bottom:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pbar{flex:1 1 140px;height:7px;background:var(--surface-2);border-radius:99px;overflow:hidden;min-width:120px}
+.pbar span{display:block;height:100%;width:0;background:var(--accent);transition:width .18s ease}
+.pcount{font-family:"IBM Plex Mono",monospace;font-size:14px;color:var(--ink-2)}
+.omr{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.grp{font-size:12.5px;letter-spacing:.06em;color:var(--ink-3);background:var(--surface);padding:7px 12px;border-bottom:1px solid var(--line);font-weight:500}
+.row{display:flex;align-items:center;gap:10px;padding:9px 6px;border-bottom:1px solid var(--line)}
+.row.filled{background:#fcfbf9}
+.qno{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:17px;width:34px;text-align:right;color:var(--ink)}
+.pt4{font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;color:var(--gold);background:var(--gold-soft);border:1px solid #e6d3a8;border-radius:99px;padding:1px 6px;line-height:1.5;white-space:nowrap}
+.pt4.ghost{visibility:hidden}
+.opts{display:flex;gap:6px;margin-left:auto}
+.opt{width:42px;height:42px;border-radius:50%;border:1.5px solid var(--line-strong);background:var(--paper);color:var(--ink-2);font-size:19px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0;transition:background .12s,border-color .12s,color .12s}
+.opt:hover{border-color:var(--accent)}
+.opt[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (max-width:430px){.opt{width:38px;height:38px;font-size:17px}.opts{gap:4px}.qno{width:28px;font-size:16px}}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+button{font-family:inherit;cursor:pointer}
+.btn{font-size:16px;font-weight:500;padding:13px 22px;border-radius:var(--radius);border:1.5px solid var(--line-strong);background:var(--paper);color:var(--ink)}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700;font-size:17px}
+.btn.primary:hover{background:#164b46}
+.btn.small{padding:10px 16px;font-size:14.5px}
+#result[hidden]{display:none}
+.scorecard{border:1.5px solid var(--ink);border-radius:var(--radius);padding:22px;display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end}
+.bignum{display:flex;align-items:baseline;gap:6px}
+.bignum b{font-family:"IBM Plex Mono",monospace;font-size:clamp(52px,14vw,76px);font-weight:600;line-height:.9;letter-spacing:-.03em}
+.bignum i{font-style:normal;font-size:22px;color:var(--ink-3)}
+.scoremeta{display:flex;flex-direction:column;gap:3px;font-size:15px;color:var(--ink-2)}
+.scoremeta strong{color:var(--ink)}
+.verdict{margin-top:14px;border-radius:var(--radius);padding:14px 16px;border:1.5px solid}
+.verdict .vt{font-size:22px;font-weight:700;margin:0}
+.verdict .vr{margin:4px 0 0;font-size:15px}
+.verdict.pass{border-color:var(--good);background:var(--good-soft);color:var(--good)}
+.verdict.cond{border-color:var(--warn);background:var(--warn-soft);color:var(--warn)}
+.verdict.fail{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+.tblwrap{overflow-x:auto;margin-top:8px}
+table{border-collapse:collapse;width:100%;font-size:15px;min-width:480px}
+caption{text-align:left;font-size:13px;color:var(--ink-3);padding-bottom:6px}
+th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+thead th{font-size:12.5px;letter-spacing:.04em;color:var(--ink-3);font-weight:500;border-bottom:1.5px solid var(--line-strong);white-space:nowrap}
+td.num,th.num{text-align:right;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+tfoot td{font-weight:700;border-bottom:none;border-top:1.5px solid var(--line-strong)}
+.ok{color:var(--good);font-weight:700}
+.ng{color:var(--bad);font-weight:700}
+.tag{font-size:13px;color:var(--ink-2)}
+.ansmark{font-family:"IBM Plex Mono",monospace;font-size:16px}
+.ansmark.right{color:var(--good)}
+.ansmark.wrong{color:var(--bad)}
+.none{color:var(--bad);background:var(--bad-soft);border-radius:4px;padding:1px 6px;font-size:13px}
+.allright{border:1.5px solid var(--good);border-radius:var(--radius);padding:16px;color:var(--good);font-weight:500}
+textarea{width:100%;font-family:inherit;font-size:15px;line-height:1.75;padding:16px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--surface);color:var(--ink);resize:vertical}
+.copybar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.toast{font-size:14px;color:var(--good);opacity:0;transition:opacity .2s}
+.toast.on{opacity:1}
+.badge{display:inline-block;font-size:13px;font-weight:700;padding:2px 8px;border-radius:99px}
+.badge.pass{background:var(--good-soft);color:var(--good)}
+.badge.cond{background:var(--warn-soft);color:var(--warn)}
+.badge.fail{background:var(--bad-soft);color:var(--bad)}
+.foot{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3)}
+.rule{font-size:14px;color:var(--ink-2);background:var(--surface);border-radius:var(--radius);padding:12px 14px;margin:0}
+.rule b{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">서로국어논술 · 레벨 테스트 자동 채점</p>
+    <h1>2027학년도 예비고1 최상위반 레벨 테스트</h1>
+    <p class="sub">국어 · 객관식 30문항 · 100점 만점 (4점 10문항 · 3점 20문항) · 60분</p>
+  </header>
+
+  <p class="rule"><b>합격 기준</b> 총점 80점 이상 + 영역별 하한선(문법 12점 · 독서 33점 · 문학 23점) 모두 통과.
+  총점 70~79점 또는 한 영역이라도 하한선 미달이면 <b>조건부</b>(김 원장 최종 결정), 70점 미만은 <b>불합격</b>입니다.</p>
+
+  <section>
+    <h2>학생 정보</h2>
+    <p class="hint">이름은 피드백 문구와 결과 목록에 들어갑니다.</p>
+    <div class="fields">
+      <div class="f"><label class="lbl" for="sname">학생 이름</label><input type="text" id="sname" placeholder="예) 김서로" autocomplete="off"></div>
+      <div class="f"><label class="lbl" for="sschool">학교</label><input type="text" id="sschool" placeholder="예) 동탄중" autocomplete="off"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>답안 입력</h2>
+    <p class="hint">빠른 입력: 학생 답 30개를 숫자로 이어서 쓰고 [입력]을 누르세요. 미응답은 0으로 씁니다. 예) 423150…</p>
+    <div class="quick">
+      <input type="text" id="quick" inputmode="numeric" placeholder="30자리 숫자 (1~5, 미응답 0)" autocomplete="off" aria-label="빠른 입력">
+      <button class="btn small" id="quickBtn">입력</button>
+    </div>
+    <p class="qmsg" id="qmsg"></p>
+    <p class="hint">또는 아래에서 문항별로 학생이 고른 번호를 누르세요. 같은 번호를 다시 누르면 해제됩니다.</p>
+    <div class="progress">
+      <div class="pbar"><span id="pfill"></span></div>
+      <div class="pcount"><b id="pnow">0</b> / 30 문항 입력</div>
+    </div>
+    <div class="omr" id="omr"></div>
+    <div class="actions">
+      <button class="btn primary" id="gradeBtn">채점하기</button>
+      <button class="btn small" id="clearBtn">다음 학생 (입력 지우기)</button>
+    </div>
+  </section>
+
+  <section id="result" hidden></section>
+
+  <section id="logSec">
+    <h2>오늘 채점한 학생</h2>
+    <p class="hint">채점할 때마다 한 줄씩 쌓입니다. [표 복사]를 누르면 엑셀·구글 시트에 그대로 붙여 넣을 수 있습니다. 이 목록은 이 브라우저에만 남으니, 끝나면 꼭 복사해 두세요.</p>
+    <div class="tblwrap"><table id="logTbl">
+      <thead><tr><th class="num">#</th><th>이름</th><th>학교</th><th class="num">총점</th><th class="num">문법</th><th class="num">독서</th><th class="num">문학</th><th class="num">4점 정답</th><th>판정</th></tr></thead>
+      <tbody id="logBody"><tr><td colspan="9" class="tag">아직 채점한 학생이 없습니다.</td></tr></tbody>
+    </table></div>
+    <div class="copybar">
+      <button class="btn small" id="copyLog">표 복사</button>
+      <button class="btn small" id="resetLog">목록 비우기</button>
+      <span class="toast" id="toast2" role="status" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <p class="foot">4점 문항: 1, 3, 9, 15, 18, 19, 22, 23, 26, 29번 · 동점자는 4점 문항 정답 수가 많은 학생을 우선합니다.<br>
+  학부모에게는 총점·영역별 점수·판정만 안내하고, 문항별 정답과 해설지는 내주지 않습니다.</p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var N = 30;
+  var ANS = [4,2,3,1,5,3,2,5,1,4,3,5,2,1,4,5,1,3,4,2,5,1,3,4,2,5,3,1,2,4];
+  var FOUR = [1,3,9,15,18,19,22,23,26,29];
+  var TAGS = [
+    "자음 체계와 음운 변동","반모음화와 반모음 첨가","동화의 방향·정도·대상","'ㅎ'의 발음","띄어쓰기","단어의 짜임",
+    "세부 내용 일치(동양화)","핵심 진술의 사례 판단","<보기> 그림에 개념 적용","다의어의 문맥적 의미",
+    "작품 간 공통점","표현상의 특징","구절의 의미 이해","화자의 태도 비교","<보기>와 시어 비교 감상",
+    "외적 준거에 따른 감상","작품 간 표현 비교","작품의 세부 이해","[A]·[B] 비교 감상","창작 과정 추리",
+    "세부 내용 일치(통화 정책)","그래프 <보기> 적용","사례에 파급 경로 적용",
+    "세부 내용 일치(재활용)","사례 판단(<보기>)","모식도 해석(<보기>)",
+    "세부 내용 일치(타악기)","서술상의 특징","<보기> 원리 추론","어휘의 사전적 의미"
+  ];
+  var GROUPS = [
+    {label:"문법 · 1~6번", a:1, b:6},
+    {label:"독서 · 7~10번 (동양화)", a:7, b:10},
+    {label:"문학 · 11~20번", a:11, b:20},
+    {label:"독서 · 21~30번 (경제 · 기술 · 예술)", a:21, b:30}
+  ];
+  var ORDER = ["문법","독서","문학"];
+  var MIN = {"문법":12,"독서":33,"문학":23};
+  var CIRCLE = ["①","②","③","④","⑤"];
+  var EXAM = "2027학년도 예비고1 최상위반 레벨 테스트(국어)";
+
+  function areaOf(n){ if(n<=6) return "문법"; if(n>=11&&n<=20) return "문학"; return "독서"; }
+  function ptOf(n){ return FOUR.indexOf(n)>=0 ? 4 : 3; }
+
+  var picked = new Array(N+1).fill(0);
+
+  var omr = document.getElementById("omr");
+  var frag = document.createDocumentFragment();
+  GROUPS.forEach(function(g){
+    var h = document.createElement("div"); h.className = "grp"; h.textContent = g.label; frag.appendChild(h);
+    for(var n=g.a;n<=g.b;n++) frag.appendChild(makeRow(n));
+  });
+  omr.appendChild(frag);
+
+  function makeRow(n){
+    var row = document.createElement("div"); row.className = "row"; row.dataset.n = n;
+    var no = document.createElement("div"); no.className = "qno"; no.textContent = n; row.appendChild(no);
+    var badge = document.createElement("span"); badge.className = "pt4" + (ptOf(n)===4 ? "" : " ghost"); badge.textContent = "4점"; row.appendChild(badge);
+    var opts = document.createElement("div"); opts.className = "opts"; opts.setAttribute("role","group"); opts.setAttribute("aria-label", n+"번 답안");
+    for(var i=1;i<=5;i++){
+      var b = document.createElement("button"); b.type = "button"; b.className = "opt"; b.textContent = CIRCLE[i-1];
+      b.setAttribute("aria-pressed","false"); b.setAttribute("aria-label", n+"번 "+i+"번 선택");
+      b.dataset.n = n; b.dataset.v = i; opts.appendChild(b);
+    }
+    row.appendChild(opts);
+    return row;
+  }
+
+  function paintRow(n){
+    var row = omr.querySelector('.row[data-n="'+n+'"]');
+    row.classList.toggle("filled", picked[n] !== 0);
+    row.querySelectorAll(".opt").forEach(function(o){
+      o.setAttribute("aria-pressed", (+o.dataset.v === picked[n]) ? "true" : "false");
+    });
+  }
+
+  omr.addEventListener("click", function(e){
+    var b = e.target.closest(".opt"); if(!b) return;
+    var n = +b.dataset.n, v = +b.dataset.v;
+    picked[n] = (picked[n] === v) ? 0 : v;
+    paintRow(n); updateProgress();
+  });
+
+  function updateProgress(){
+    var c = 0; for(var i=1;i<=N;i++) if(picked[i]) c++;
+    document.getElementById("pnow").textContent = c;
+    document.getElementById("pfill").style.width = (c/N*100) + "%";
+  }
+
+  /* quick entry */
+  function quickFill(){
+    var raw = document.getElementById("quick").value.replace(/[\s,\-\/]/g,"");
+    var msg = document.getElementById("qmsg");
+    msg.classList.remove("err");
+    if(!/^[0-5]*$/.test(raw)){ msg.textContent = "숫자 0~5만 쓸 수 있습니다."; msg.classList.add("err"); return; }
+    if(raw.length !== N){ msg.textContent = "지금 " + raw.length + "자리입니다. 30자리를 맞춰 주세요 (미응답은 0)."; msg.classList.add("err"); return; }
+    for(var i=1;i<=N;i++){ picked[i] = +raw[i-1]; paintRow(i); }
+    updateProgress();
+    msg.textContent = "30문항을 입력했습니다. 아래 표시를 확인한 뒤 [채점하기]를 누르세요.";
+  }
+  document.getElementById("quickBtn").addEventListener("click", quickFill);
+  document.getElementById("quick").addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); quickFill(); } });
+
+  document.getElementById("clearBtn").addEventListener("click", function(){
+    picked = new Array(N+1).fill(0);
+    for(var i=1;i<=N;i++) paintRow(i);
+    updateProgress();
+    document.getElementById("sname").value = "";
+    document.getElementById("sschool").value = "";
+    document.getElementById("quick").value = "";
+    document.getElementById("qmsg").textContent = "";
+    var res = document.getElementById("result"); res.hidden = true; res.innerHTML = "";
+    window.scrollTo({top:0,behavior:"smooth"});
+    document.getElementById("sname").focus();
+  });
+
+  /* grading */
+  function grade(){
+    var g = {name:(document.getElementById("sname").value||"").trim(),
+             school:(document.getElementById("sschool").value||"").trim(),
+             score:0,right:0,four:0,blank:0,wrongs:[],byArea:{}};
+    ORDER.forEach(function(k){ g.byArea[k] = {got:0,full:0,ok:0,cnt:0}; });
+    for(var n=1;n<=N;n++){
+      var a = areaOf(n), p = ptOf(n), ok = (picked[n] === ANS[n-1]);
+      g.byArea[a].full += p; g.byArea[a].cnt += 1;
+      if(!picked[n]) g.blank++;
+      if(ok){ g.score += p; g.right++; g.byArea[a].got += p; g.byArea[a].ok += 1; if(p===4) g.four++; }
+      else g.wrongs.push({n:n, pt:p, ans:ANS[n-1], mine:picked[n], tag:TAGS[n-1], area:a});
+    }
+    var fails = ORDER.filter(function(k){ return g.byArea[k].got < MIN[k]; });
+    g.fails = fails;
+    if(g.score < 70){ g.verdict = "fail"; g.vlabel = "불합격"; g.vreason = "총점 70점 미만"; }
+    else if(g.score >= 80 && !fails.length){ g.verdict = "pass"; g.vlabel = "합격"; g.vreason = "총점 80점 이상, 세 영역 모두 하한선 통과"; }
+    else {
+      g.verdict = "cond"; g.vlabel = "조건부";
+      var r = [];
+      if(g.score < 80) r.push("총점 70~79점");
+      if(fails.length) r.push(fails.join("·") + " 하한선 미달");
+      g.vreason = r.join(", ") + " → 김 원장 최종 결정";
+    }
+    return g;
+  }
+
+  function pct(a,b){ return b ? Math.round(a/b*1000)/10 : 0; }
+  function weakest(g){
+    return ORDER.slice().sort(function(x,y){
+      return (g.byArea[x].got/g.byArea[x].full) - (g.byArea[y].got/g.byArea[y].full);
+    })[0];
+  }
+  var ADVICE = {
+    "문법":"음운 변동과 단어의 짜임은 개념 정리 → 예문 적용 순서로 반복해야 자리 잡습니다. 고등 문법 개념을 단계적으로 다지는 과정을 권해 드립니다.",
+    "독서":"지문을 읽을 때 개념·원리·사례의 구조를 표시하며 읽는 훈련과, <보기> 적용 문항에서 지문의 조건을 하나씩 대응시키는 연습이 필요합니다.",
+    "문학":"작품 해석보다 선지의 진위를 판별하는 단계에서 실점이 납니다. 근거가 되는 구절에 표시한 뒤 선지를 검토하는 순서로 접근하는 훈련을 권해 드립니다."
+  };
+
+  function buildFeedback(g){
+    var nm = g.name || "학생", L = [];
+    L.push("안녕하세요, " + nm + " 학생 학부모님. 서로국어논술입니다.");
+    L.push(EXAM + " 결과를 안내드립니다.");
+    L.push("");
+    L.push("[결과]");
+    L.push("· 총점 " + g.score + "점 / 100점");
+    ORDER.forEach(function(k){
+      var a = g.byArea[k];
+      L.push("· " + k + " " + a.got + "점 / " + a.full + "점 (정답 " + a.ok + "/" + a.cnt + "문항)");
+    });
+    L.push("· 고난도(4점) 문항 " + g.four + "개 / 10개 정답");
+    L.push("");
+    if(g.verdict === "pass"){
+      L.push(nm + " 학생은 2027 예비고1 최상위반 레벨 테스트에 합격했습니다. 등록 절차를 따로 안내해 드리겠습니다.");
+    }else if(g.verdict === "cond"){
+      L.push(nm + " 학생은 전체적으로 우수한 실력을 보였으나 일부 영역에서 보완이 필요합니다. 원장 상담을 거쳐 반 배정을 확정하겠습니다.");
+    }else{
+      L.push(nm + " 학생은 현재 수준에서는 상위반에서 기초를 다지는 것이 더 효과적입니다. 영역별 결과와 추천 반을 상담으로 안내해 드리겠습니다.");
+    }
+    L.push("");
+    var w = weakest(g);
+    L.push("[학습 제안]");
+    L.push("가장 보완이 필요한 영역은 " + w + "(" + g.byArea[w].got + "/" + g.byArea[w].full + "점)입니다. " + ADVICE[w]);
+    L.push("");
+    L.push("궁금하신 점은 언제든 편하게 연락 주세요. 감사합니다.");
+    L.push("— 서로국어논술");
+    return L.join("\n");
+  }
+
+  function buildMemo(g){
+    var L = [];
+    L.push("[상담 메모] " + EXAM);
+    L.push("학생: " + (g.name||"-") + (g.school ? " (" + g.school + ")" : ""));
+    L.push("판정: " + g.vlabel + " — " + g.vreason);
+    L.push("총점 " + g.score + "/100 · 정답 " + g.right + "/30 · 4점 문항 " + g.four + "/10" + (g.blank ? " · 미응답 " + g.blank : ""));
+    L.push(ORDER.map(function(k){ var a = g.byArea[k]; return k + " " + a.got + "/" + a.full + "(하한 " + MIN[k] + ")"; }).join(" · "));
+    L.push("오답: " + (g.wrongs.length ? g.wrongs.map(function(w){ return w.n + "번(" + w.tag + ")"; }).join(", ") : "없음"));
+    return L.join("\n");
+  }
+
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+  function render(g){
+    var res = document.getElementById("result"), h = "";
+    h += '<h2>채점 결과' + (g.name ? ' · ' + esc(g.name) : '') + '</h2>';
+    h += '<p class="hint">' + EXAM + (g.school ? ' · ' + esc(g.school) : '') + '</p>';
+    h += '<div class="scorecard"><div class="bignum"><b>' + g.score + '</b><i>/ 100점</i></div>' +
+         '<div class="scoremeta"><div>정답 <strong>' + g.right + '</strong> / 30문항</div>' +
+         '<div>4점 문항 <strong>' + g.four + '</strong> / 10개 정답</div>' +
+         '<div>미응답 <strong>' + g.blank + '</strong>문항</div></div></div>';
+    h += '<div class="verdict ' + g.verdict + '"><p class="vt">' + g.vlabel + '</p><p class="vr">' + esc(g.vreason) + '</p></div>';
+
+    h += '<section><h2>영역별 성취</h2><div class="tblwrap"><table>' +
+         '<caption>하한선을 넘지 못한 영역은 빨간색으로 표시됩니다.</caption>' +
+         '<thead><tr><th>영역</th><th class="num">득점</th><th class="num">만점</th><th class="num">하한선</th><th class="num">정답 문항</th><th>통과</th></tr></thead><tbody>';
+    ORDER.forEach(function(k){
+      var a = g.byArea[k], pass = a.got >= MIN[k];
+      h += '<tr><td>' + k + '</td><td class="num ' + (pass?'':'ng') + '">' + a.got + '</td><td class="num">' + a.full + '</td>' +
+           '<td class="num">' + MIN[k] + '</td><td class="num">' + a.ok + ' / ' + a.cnt + '</td>' +
+           '<td>' + (pass ? '<span class="ok">통과</span>' : '<span class="ng">미달</span>') + '</td></tr>';
+    });
+    h += '</tbody><tfoot><tr><td>합계</td><td class="num">' + g.score + '</td><td class="num">100</td><td class="num">80</td>' +
+         '<td class="num">' + g.right + ' / 30</td><td>' + (g.score>=80 ? '<span class="ok">통과</span>' : '<span class="ng">미달</span>') + '</td></tr></tfoot></table></div></section>';
+
+    h += '<section><h2>오답 문항</h2>';
+    if(g.wrongs.length){
+      h += '<p class="hint">총 ' + g.wrongs.length + '문항 · 실장 확인용입니다. 학부모에게 정답 번호는 안내하지 않습니다.</p>';
+      h += '<div class="tblwrap"><table><thead><tr><th class="num">번호</th><th class="num">배점</th><th>영역</th><th>정답</th><th>학생 답</th><th>유형</th></tr></thead><tbody>';
+      g.wrongs.forEach(function(w){
+        h += '<tr><td class="num">' + w.n + '</td><td class="num">' + w.pt + '</td><td>' + w.area + '</td>' +
+             '<td><span class="ansmark right">' + CIRCLE[w.ans-1] + '</span></td>' +
+             '<td>' + (w.mine ? '<span class="ansmark wrong">' + CIRCLE[w.mine-1] + '</span>' : '<span class="none">미응답</span>') + '</td>' +
+             '<td class="tag">' + esc(w.tag) + '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }else{
+      h += '<div class="allright">오답 없음 — 30문항 전부 정답입니다.</div>';
+    }
+    h += '</section>';
+
+    h += '<section><h2>학부모 안내 문자</h2><p class="hint">그대로 문자·알림장에 붙여 넣을 수 있습니다. 글상자에서 바로 고칠 수 있습니다.</p>' +
+         '<textarea id="fbText" rows="20" aria-label="학부모 안내 문자"></textarea>' +
+         '<div class="copybar"><button class="btn small" id="copyFb">안내 문자 복사</button>' +
+         '<button class="btn small" id="copyMemo">상담 메모 복사</button>' +
+         '<span class="toast" id="toast" role="status" aria-live="polite"></span></div></section>';
+
+    res.innerHTML = h; res.hidden = false;
+    document.getElementById("fbText").value = buildFeedback(g);
+    document.getElementById("copyFb").addEventListener("click", function(){ copy(document.getElementById("fbText").value, "toast", "안내 문자를 복사했습니다."); });
+    document.getElementById("copyMemo").addEventListener("click", function(){ copy(buildMemo(g), "toast", "상담 메모를 복사했습니다."); });
+    res.scrollIntoView({behavior:"smooth", block:"start"});
+  }
+
+  function copy(text, toastId, msg){
+    var t = document.getElementById(toastId);
+    function done(ok){
+      t.textContent = ok ? msg : "복사에 실패했습니다. 직접 선택해 복사해 주세요.";
+      t.style.color = ok ? "var(--good)" : "var(--bad)";
+      t.classList.add("on"); setTimeout(function(){ t.classList.remove("on"); }, 2200);
+    }
+    var ta = document.createElement("textarea"); ta.value = text;
+    ta.style.cssText = "position:fixed;top:-1000px;left:0;opacity:0";
+    document.body.appendChild(ta); ta.select();
+    var ok = false; try{ ok = document.execCommand("copy"); }catch(e){ ok = false; }
+    document.body.removeChild(ta);
+    if(ok){ done(true); return; }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ done(true); }, function(){ done(false); });
+    }else done(false);
+  }
+
+  /* session log */
+  var KEY = "seoro-pre1-top-log";
+  var log = [];
+  try{ log = JSON.parse(localStorage.getItem(KEY) || "[]") || []; }catch(e){ log = []; }
+  function saveLog(){ try{ localStorage.setItem(KEY, JSON.stringify(log)); }catch(e){} }
+  function drawLog(){
+    var body = document.getElementById("logBody");
+    if(!log.length){ body.innerHTML = '<tr><td colspan="9" class="tag">아직 채점한 학생이 없습니다.</td></tr>'; return; }
+    body.innerHTML = log.map(function(r,i){
+      return '<tr><td class="num">' + (i+1) + '</td><td>' + esc(r.name||"-") + '</td><td>' + esc(r.school||"-") + '</td>' +
+             '<td class="num">' + r.score + '</td><td class="num">' + r.gram + '</td><td class="num">' + r.read + '</td><td class="num">' + r.lit + '</td>' +
+             '<td class="num">' + r.four + '</td><td><span class="badge ' + r.v + '">' + r.vl + '</span></td></tr>';
+    }).join("");
+  }
+  document.getElementById("copyLog").addEventListener("click", function(){
+    var lines = ["번호\t이름\t학교\t총점\t문법(20)\t독서(47)\t문학(33)\t4점 정답(10)\t판정"];
+    log.forEach(function(r,i){ lines.push([i+1, r.name||"", r.school||"", r.score, r.gram, r.read, r.lit, r.four, r.vl].join("\t")); });
+    copy(lines.join("\n"), "toast2", "표를 복사했습니다. 엑셀에 붙여 넣으세요.");
+  });
+  var resetArmed = false;
+  document.getElementById("resetLog").addEventListener("click", function(){
+    var b = this;
+    if(!resetArmed){ resetArmed = true; b.textContent = "정말 비울까요? 한 번 더 누르세요"; setTimeout(function(){ resetArmed = false; b.textContent = "목록 비우기"; }, 3000); return; }
+    log = []; saveLog(); drawLog(); resetArmed = false; b.textContent = "목록 비우기";
+  });
+
+  document.getElementById("gradeBtn").addEventListener("click", function(){
+    var g = grade();
+    render(g);
+    log.push({name:g.name, school:g.school, score:g.score, gram:g.byArea["문법"].got, read:g.byArea["독서"].got,
+              lit:g.byArea["문학"].got, four:g.four, v:g.verdict, vl:g.vlabel});
+    saveLog(); drawLog();
+  });
+
+  drawLog(); updateProgress();
+})();
+</script>
+</body>
+</html>
