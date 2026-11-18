@@ -103,10 +103,28 @@ textarea{width:100%;font-family:inherit;font-size:15px;line-height:1.75;padding:
 .foot{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3)}
 .rule{font-size:14px;color:var(--ink-2);background:var(--surface);border-radius:var(--radius);padding:12px 14px;margin:0}
 .rule b{color:var(--ink)}
+.gate{position:fixed;inset:0;z-index:50;background:var(--paper);display:flex;align-items:center;justify-content:center;padding:24px}
+.gate[hidden]{display:none}
+.gbox{width:100%;max-width:380px;text-align:center}
+.gbox h2{font-size:22px;margin-bottom:6px}
+.gbox input{text-align:center;margin:14px 0 10px;letter-spacing:.1em}
+.gbox .btn{width:100%}
+.gerr{color:var(--bad);font-size:14px;min-height:1.4em;margin:8px 0 0}
+body.locked .wrap{display:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
-<body>
+<body class="locked">
+<div class="gate" id="gate">
+  <form class="gbox" id="gateForm">
+    <p class="eyebrow">서로국어논술 · 실장 전용</p>
+    <h2>예비고1 최상위반 채점기</h2>
+    <p class="hint">실장님께 안내된 비밀번호를 입력하세요.</p>
+    <input type="password" id="gpw" autocomplete="current-password" aria-label="비밀번호" style="width:100%;font:inherit;font-size:18px;padding:11px 14px;border:1px solid var(--line-strong);border-radius:var(--radius)">
+    <button class="btn primary" type="submit">들어가기</button>
+    <p class="gerr" id="gerr" role="alert"></p>
+  </form>
+</div>
 <div class="wrap">
 
   <header class="masthead">
@@ -171,7 +189,10 @@ textarea{width:100%;font-family:inherit;font-size:15px;line-height:1.75;padding:
 (function(){
   "use strict";
   var N = 30;
-  var ANS = [4,2,3,1,5,3,2,5,1,4,3,5,2,1,4,5,1,3,4,2,5,1,3,4,2,5,3,1,2,4];
+  var ANS = null;
+  var ENC = [8,6,126,104,61,40,13,149,204,79,2,203,13,23,32,19,67,50,81,147,49,199,43,173,70,223,159,203,77,209];
+  var SALT = "seoro-pre1-top-v1";
+  var CHK = "e4daaea6839549cb0c674230199d24b48bb63082216167cb2d21d61e7042776c";
   var FOUR = [1,3,9,15,18,19,22,23,26,29];
   var TAGS = [
     "자음 체계와 음운 변동","반모음화와 반모음 첨가","동화의 방향·정도·대상","'ㅎ'의 발음","띄어쓰기","단어의 짜임",
@@ -452,6 +473,32 @@ textarea{width:100%;font-family:inherit;font-size:15px;line-height:1.75;padding:
               lit:g.byArea["문학"].got, four:g.four, v:g.verdict, vl:g.vlabel});
     saveLog(); drawLog();
   });
+
+  function sha(str){
+    return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)).then(function(b){ return new Uint8Array(b); });
+  }
+  function hex(u){ return Array.prototype.map.call(u, function(x){ return ("0"+x.toString(16)).slice(-2); }).join(""); }
+  function unlock(pw){
+    return sha("chk:"+SALT+":"+pw).then(function(h){
+      if(hex(h) !== CHK) return false;
+      return sha("key:"+SALT+":"+pw).then(function(k){
+        ANS = ENC.map(function(v,i){ return v ^ k[i%32]; });
+        document.body.classList.remove("locked");
+        document.getElementById("gate").hidden = true;
+        try{ sessionStorage.setItem("seoro-pre1-top-pw", pw); }catch(e){}
+        return true;
+      });
+    });
+  }
+  document.getElementById("gateForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var pw = document.getElementById("gpw").value;
+    unlock(pw).then(function(ok){
+      if(!ok){ document.getElementById("gerr").textContent = "비밀번호가 맞지 않습니다."; document.getElementById("gpw").select(); }
+    }).catch(function(){ document.getElementById("gerr").textContent = "이 브라우저에서는 열 수 없습니다. 크롬이나 엣지로 열어 주세요."; });
+  });
+  try{ var saved = sessionStorage.getItem("seoro-pre1-top-pw"); if(saved) unlock(saved); }catch(e){}
+  document.getElementById("gpw").focus();
 
   drawLog(); updateProgress();
 })();
