@@ -116,7 +116,7 @@ textarea{width:100%;font-family:inherit;font-size:15px;line-height:1.75;padding:
   </header>
 
   <p class="rule"><b>합격 기준</b> 총점 80점 이상 + 영역별 하한선(문법 12점 · 독서 33점 · 문학 23점) 모두 통과.
-  총점 70~79점 또는 한 영역이라도 하한선 미달이면 <b>조건부</b>(김 원장 최종 결정), 70점 미만은 <b>불합격</b>입니다.</p>
+  총점 70~79점 또는 한 영역이라도 하한선 미달이면 <b>조건부</b>, 70점 미만은 <b>불합격</b>입니다.</p>
 
   <section>
     <h2>학생 정보</h2>
@@ -290,7 +290,7 @@ textarea{width:100%;font-family:inherit;font-size:15px;line-height:1.75;padding:
       var r = [];
       if(g.score < 80) r.push("총점 70~79점");
       if(fails.length) r.push(fails.join("·") + " 하한선 미달");
-      g.vreason = r.join(", ") + " → 김 원장 최종 결정";
+      g.vreason = r.join(", ");
     }
     return g;
   }
@@ -323,7 +323,7 @@ textarea{width:100%;font-family:inherit;font-size:15px;line-height:1.75;padding:
     if(g.verdict === "pass"){
       L.push(nm + " 학생은 2027 예비고1 최상위반 레벨 테스트에 합격했습니다. 등록 절차를 따로 안내해 드리겠습니다.");
     }else if(g.verdict === "cond"){
-      L.push(nm + " 학생은 전체적으로 우수한 실력을 보였으나 일부 영역에서 보완이 필요합니다. 원장 상담을 거쳐 반 배정을 확정하겠습니다.");
+      L.push(nm + " 학생은 전체적으로 우수한 실력을 보였으나 일부 영역에서 보완이 필요합니다. 상담을 거쳐 반 배정을 확정하겠습니다.");
     }else{
       L.push(nm + " 학생은 현재 수준에서는 상위반에서 기초를 다지는 것이 더 효과적입니다. 영역별 결과와 추천 반을 상담으로 안내해 드리겠습니다.");
     }
