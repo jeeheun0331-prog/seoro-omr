@@ -133,8 +133,8 @@ body.locked .wrap{display:none}
     <p class="sub">국어 · 객관식 10문항 · 100점 만점 (12점 5문항 · 8점 5문항) · 20분</p>
   </header>
 
-  <p class="rule"><b>합격 기준</b> 총점 90점 이상 + 영역별 하한선(문법 20점 · 독서 16점 · 문학 32점) 모두 통과.
-  총점 80~89점 또는 한 영역이라도 하한선 미달이면 <b>조건부</b>, 80점 미만은 <b>불합격</b>입니다.</p>
+  <p class="rule"><b>합격 기준</b> 총점 88점 이상 + 영역별 하한선(문법 20점 · 독서 16점 · 문학 32점) 모두 통과.
+  총점 80~87점 또는 한 영역이라도 하한선 미달이면 <b>조건부</b>, 80점 미만은 <b>불합격</b>입니다.</p>
 
   <section>
     <h2>학생 정보</h2>
@@ -300,11 +300,11 @@ body.locked .wrap{display:none}
     var fails = ORDER.filter(function(k){ return g.byArea[k].got < MIN[k]; });
     g.fails = fails;
     if(g.score < 80){ g.verdict = "fail"; g.vlabel = "불합격"; g.vreason = "총점 80점 미만"; }
-    else if(g.score >= 90 && !fails.length){ g.verdict = "pass"; g.vlabel = "합격"; g.vreason = "총점 90점 이상, 세 영역 모두 하한선 통과"; }
+    else if(g.score >= 88 && !fails.length){ g.verdict = "pass"; g.vlabel = "합격"; g.vreason = "총점 88점 이상, 세 영역 모두 하한선 통과"; }
     else {
       g.verdict = "cond"; g.vlabel = "조건부";
       var r = [];
-      if(g.score < 90) r.push("총점 80~89점");
+      if(g.score < 88) r.push("총점 80~87점");
       if(fails.length) r.push(fails.join("·") + " 하한선 미달");
       g.vreason = r.join(", ");
     }
@@ -385,8 +385,8 @@ body.locked .wrap{display:none}
            '<td class="num">' + MIN[k] + '</td><td class="num">' + a.ok + ' / ' + a.cnt + '</td>' +
            '<td>' + (pass ? '<span class="ok">통과</span>' : '<span class="ng">미달</span>') + '</td></tr>';
     });
-    h += '</tbody><tfoot><tr><td>합계</td><td class="num">' + g.score + '</td><td class="num">100</td><td class="num">90</td>' +
-         '<td class="num">' + g.right + ' / 10</td><td>' + (g.score>=90 ? '<span class="ok">통과</span>' : '<span class="ng">미달</span>') + '</td></tr></tfoot></table></div></section>';
+    h += '</tbody><tfoot><tr><td>합계</td><td class="num">' + g.score + '</td><td class="num">100</td><td class="num">88</td>' +
+         '<td class="num">' + g.right + ' / 10</td><td>' + (g.score>=88 ? '<span class="ok">통과</span>' : '<span class="ng">미달</span>') + '</td></tr></tfoot></table></div></section>';
 
     h += '<section><h2>오답 문항</h2>';
     if(g.wrongs.length){
