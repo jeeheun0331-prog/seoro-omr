@@ -133,8 +133,8 @@ body.locked .wrap{display:none}
     <p class="sub">국어 · 객관식 10문항 · 100점 만점 (12점 5문항 · 8점 5문항) · 20분</p>
   </header>
 
-  <p class="rule"><b>합격 기준</b> 총점 88점 이상 + 영역별 하한선(문법 20점 · 독서 16점 · 문학 32점) 모두 통과.
-  총점 80~87점 또는 한 영역이라도 하한선 미달이면 <b>조건부</b>, 80점 미만은 <b>불합격</b>입니다.</p>
+  <p class="rule"><b>합격 기준</b> 총점 88점 이상이면 <b>합격</b>, 88점 미만이면 <b>불합격</b>입니다.
+  영역별 하한선(문법 20점 · 독서 16점 · 문학 32점)은 상담 참고용이며 판정에는 쓰지 않습니다.</p>
 
   <section>
     <h2>학생 정보</h2>
@@ -299,15 +299,8 @@ body.locked .wrap{display:none}
     }
     var fails = ORDER.filter(function(k){ return g.byArea[k].got < MIN[k]; });
     g.fails = fails;
-    if(g.score < 80){ g.verdict = "fail"; g.vlabel = "불합격"; g.vreason = "총점 80점 미만"; }
-    else if(g.score >= 88 && !fails.length){ g.verdict = "pass"; g.vlabel = "합격"; g.vreason = "총점 88점 이상, 세 영역 모두 하한선 통과"; }
-    else {
-      g.verdict = "cond"; g.vlabel = "조건부";
-      var r = [];
-      if(g.score < 88) r.push("총점 80~87점");
-      if(fails.length) r.push(fails.join("·") + " 하한선 미달");
-      g.vreason = r.join(", ");
-    }
+    if(g.score >= 88){ g.verdict = "pass"; g.vlabel = "합격"; g.vreason = "총점 88점 이상"; }
+    else { g.verdict = "fail"; g.vlabel = "불합격"; g.vreason = "총점 88점 미만"; }
     return g;
   }
 
@@ -377,7 +370,7 @@ body.locked .wrap{display:none}
     h += '<div class="verdict ' + g.verdict + '"><p class="vt">' + g.vlabel + '</p><p class="vr">' + esc(g.vreason) + '</p>' + (g.verdict==="cond" ? '<p class="vr"><b>내부 판정입니다.</b> 학부모에게 \'조건부\'라는 표현을 쓰지 말고 아래 안내 문자를 사용하세요.</p>' : '') + '</div>';
 
     h += '<section><h2>영역별 성취</h2><div class="tblwrap"><table>' +
-         '<caption>하한선을 넘지 못한 영역은 빨간색으로 표시됩니다.</caption>' +
+         '<caption>하한선(상담 참고용)을 넘지 못한 영역은 빨간색으로 표시됩니다. 판정은 총점으로만 합니다.</caption>' +
          '<thead><tr><th>영역</th><th class="num">득점</th><th class="num">만점</th><th class="num">하한선</th><th class="num">정답 문항</th><th>통과</th></tr></thead><tbody>';
     ORDER.forEach(function(k){
       var a = g.byArea[k], pass = a.got >= MIN[k];
