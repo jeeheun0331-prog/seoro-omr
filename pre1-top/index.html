@@ -294,7 +294,7 @@ body.locked .wrap{display:none}
       var a = areaOf(n), p = ptOf(n), ok = (picked[n] === ANS[n-1]);
       g.byArea[a].full += p; g.byArea[a].cnt += 1;
       if(!picked[n]) g.blank++;
-      if(ok){ g.score += p; g.right++; g.byArea[a].got += p; g.byArea[a].ok += 1; if(p===4) g.four++; }
+      if(ok){ g.score += p; g.right++; g.byArea[a].got += p; g.byArea[a].ok += 1; if(p===12) g.four++; }
       else g.wrongs.push({n:n, pt:p, ans:ANS[n-1], mine:picked[n], tag:TAGS[n-1], area:a});
     }
     var fails = ORDER.filter(function(k){ return g.byArea[k].got < MIN[k]; });
