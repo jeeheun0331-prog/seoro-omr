@@ -133,7 +133,7 @@ body.locked .wrap{display:none}
     <p class="sub">국어 · 객관식 10문항 · 100점 만점 (12점 5문항 · 8점 5문항) · 20분</p>
   </header>
 
-  <p class="rule"><b>합격 기준</b> 총점 90점 이상 + 영역별 하한선(문법 16점 · 독서 20점 · 문학 28점) 모두 통과.
+  <p class="rule"><b>합격 기준</b> 총점 90점 이상 + 영역별 하한선(문법 20점 · 독서 16점 · 문학 32점) 모두 통과.
   총점 80~89점 또는 한 영역이라도 하한선 미달이면 <b>조건부</b>, 80점 미만은 <b>불합격</b>입니다.</p>
 
   <section>
@@ -181,7 +181,7 @@ body.locked .wrap{display:none}
     </div>
   </section>
 
-  <p class="foot">12점 문항: 2, 5, 6, 9, 10번 · 동점자는 12점 문항 정답 수가 많은 학생을 우선합니다.<br>
+  <p class="foot">12점 문항: 2, 3, 5, 6, 7번 · 동점자는 12점 문항 정답 수가 많은 학생을 우선합니다.<br>
   학부모에게는 총점·영역별 점수·판정만 안내하고, 문항별 정답과 해설지는 내주지 않습니다.</p>
 </div>
 
@@ -193,7 +193,7 @@ body.locked .wrap{display:none}
   var ENC = [8,6,120,104,59,41,12,149,204,79];
   var SALT = "seoro-pre1-top-v1";
   var CHK = "e4daaea6839549cb0c674230199d24b48bb63082216167cb2d21d61e7042776c";
-  var FOUR = [2,5,6,9,10];
+  var FOUR = [2,3,5,6,7];
   var TAGS = [
     "자음 체계와 음운 변동","동화의 방향·정도 분석","단어의 짜임",
     "작품 간 표현 비교","작품의 세부 이해","[A]·[B] 비교 감상","창작 과정 추리",
@@ -205,7 +205,7 @@ body.locked .wrap{display:none}
     {label:"독서 · 8~10번 (경제)", a:8, b:10}
   ];
   var ORDER = ["문법","독서","문학"];
-  var MIN = {"문법":16,"독서":20,"문학":28};
+  var MIN = {"문법":20,"독서":16,"문학":32};
   var CIRCLE = ["①","②","③","④","⑤"];
   var EXAM = "2027학년도 예비고1 최상위반 레벨 테스트(국어)";
 
@@ -450,7 +450,7 @@ body.locked .wrap{display:none}
     }).join("");
   }
   document.getElementById("copyLog").addEventListener("click", function(){
-    var lines = ["번호\t이름\t학교\t총점\t문법(28)\t독서(32)\t문학(40)\t12점 정답(5)\t판정"];
+    var lines = ["번호\t이름\t학교\t총점\t문법(32)\t독서(24)\t문학(44)\t12점 정답(5)\t판정"];
     log.forEach(function(r,i){ lines.push([i+1, r.name||"", r.school||"", r.score, r.gram, r.read, r.lit, r.four, r.vl].join("\t")); });
     copy(lines.join("\n"), "toast2", "표를 복사했습니다. 엑셀에 붙여 넣으세요.");
   });
